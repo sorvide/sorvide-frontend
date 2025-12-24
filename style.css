@@ -1877,14 +1877,14 @@ p {
     }
     
     .hero-title {
-        font-size: 2.2rem !important; /* Increased */
+        font-size: 2.8rem !important; /* Increased */
         line-height: 1.2;
         margin-bottom: 1.5rem !important; /* Increased margin */
         text-align: left;
     }
     
     .hero-subtitle {
-        font-size: 1.1rem !important; /* Increased */
+        font-size: 1.4rem !important; /* Increased */
         line-height: 1.6 !important; /* Increased line height */
         margin-bottom: 3rem !important; /* Increased margin */
         padding: 0;

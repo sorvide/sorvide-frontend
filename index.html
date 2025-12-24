@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sorvide AI - Research Assistant Chrome Extension</title>
+    <meta name="description" content="AI-powered Chrome extension for instant summaries, plagiarism checks, citations, and research insights.">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        /* Critical inline CSS to prevent FOUC */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #ffffff; color: #1f2937; }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container nav-container">
+            <div class="nav-left">
+                <a href="#home" class="nav-logo">
+                    <img src="images/SorvideLogo.png" alt="Sorvide AI" class="logo-img">
+                    <span class="logo-text">Sorvide</span>
+                </a>
+                <div class="nav-menu">
+                    <a href="#home" class="nav-link">About</a>
+                    <a href="#demo" class="nav-link">View Demo</a>
+                    <a href="#pricing" class="nav-link">Pricing</a>
+                    <a href="#faq" class="nav-link">Inquiries</a>
+                </div>
+            </div>
+            <div class="nav-actions">
+                <a href="mailto:support@sorvide.com" class="btn-primary">
+                    <i class="fas fa-envelope"></i> Contact
+                </a>
+            </div>
+            <button class="menu-toggle">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Hero Section with Improved Workflow Design -->
+    <section id="home" class="hero-section">
+        <div class="container">
+            <div class="hero-content">
+                <div class="hero-text">
+                    <div class="hero-badge">
+                        <i class="fab fa-chrome"></i> Chrome Extension
+                    </div>
+                    <h1 class="hero-title">Research Smarter<span class="gradient-text">with Sorvide</span></h1>
+                    <p class="hero-subtitle">Highlight any text, get instant AI summaries, check for plagiarism, generate citations, and export research—all within your browser.</p>
+                    
+                    <div class="hero-cta">
+                        <a href="#download" class="btn-primary btn-large">
+                            <i class="fas fa-download"></i> Download for Chrome
+                        </a>
+                        <a href="#demo" class="btn-outline btn-large">
+                            <i class="fas fa-play-circle"></i> View Demo
+                        </a>
+                    </div>
+                    <div class="hero-stats">
+                        <div class="stat">
+                            <div class="stat-number">2M+</div>
+                            <div class="stat-label">Words Analyzed</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-number">98%</div>
+                            <div class="stat-label">Accuracy Rate</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-number">2.1s</div>
+                            <div class="stat-label">Avg. Processing</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Cool Typing/Analysis Animation -->
+                <div class="hero-visual">
+                    <div class="animation-container">
+                        <!-- Main Computer Screen -->
+                        <div class="computer-screen">
+                            <div class="screen-content">
+                                <!-- AI Processing Header -->
+                                <div class="ai-processing-header">
+                                    <div class="ai-badge">
+                                        <i class="fas fa-robot"></i> Sorvide Processing
+                                    </div>
+                                    <div class="processing-status">
+                                        <span class="status-dot active"></span>
+                                        <span class="status-text">Analyzing research...</span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Typing Animation -->
+                                <div class="typing-animation">
+                                    <div class="code-lines">
+                                        <div class="code-line typing">> Processing: "Artificial Intelligence in Modern Research"</div>
+                                        <div class="code-line">> Extracting key concepts... <span class="status-check">✓</span></div>
+                                        <div class="code-line">> Generating summary... <span class="status-check">✓</span></div>
+                                        <div class="code-line">> Checking for plagiarism... <span class="status-check">✓</span></div>
+                                        <div class="code-line">> Formatting citations... <span class="status-check">✓</span></div>
+                                        <div class="code-line">> Analyzing insights... <span class="status-check">✓</span></div>
+                                        <div class="code-line typing">> Results ready in <span class="time-counter">2.1s</span></div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Progress Visualization -->
+                                <div class="progress-visualization">
+                                    <div class="vis-header">
+                                        <span class="vis-label">Research Analysis Progress</span>
+                                        <span class="vis-percent">94%</span>
+                                    </div>
+                                    <div class="vis-bar">
+                                        <div class="vis-fill"></div>
+                                        <div class="vis-particles">
+                                            <div class="particle"></div>
+                                            <div class="particle"></div>
+                                            <div class="particle"></div>
+                                            <div class="particle"></div>
+                                            <div class="particle"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- NEW: AI Insights Preview -->
+                                <div class="ai-insights-preview">
+                                    <div class="insight-card">
+                                        <div class="insight-icon">
+                                            <i class="fas fa-bolt"></i>
+                                        </div>
+                                        <div class="insight-content">
+                                            <div class="insight-title">Efficiency</div>
+                                            <div class="insight-bar">
+                                                <div class="insight-fill" style="width: 90%"></div>
+                                            </div>
+                                            <div class="insight-value">90% faster</div>
+                                        </div>
+                                    </div>
+                                    <div class="insight-card">
+                                        <div class="insight-icon">
+                                            <i class="fas fa-shield-alt"></i>
+                                        </div>
+                                        <div class="insight-content">
+                                            <div class="insight-title">Originality</div>
+                                            <div class="insight-bar">
+                                                <div class="insight-fill" style="width: 100%"></div>
+                                            </div>
+                                            <div class="insight-value">0% matcb</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- View Demo Section -->
+    <section id="demo" class="demo-section">
+        <div class="container">
+            <div class="section-header">
+                <h2>Try Sorvide Instantly</h2>
+                <p>Experience our integrated features with this sample text</p>
+            </div>
+            
+            <div class="demo-container">
+                <div class="demo-text-card">
+                    <h3><i class="fas fa-edit"></i> Sample Research Text</h3>
+                    <div class="demo-text-display" id="demoText">
+                        <p><strong>Artificial Intelligence in Modern Research</strong></p>
+                        <p>The integration of artificial intelligence into academic research has fundamentally transformed scholarly practices across disciplines. Modern AI systems, particularly large language models, demonstrate unprecedented capabilities in processing, analyzing, and synthesizing vast amounts of academic literature. These systems can identify patterns and connections that might elude human researchers, while simultaneously ensuring consistency in methodology and reporting.</p>
+                        <p>Recent advancements in natural language processing have enabled AI to comprehend complex academic texts, extract key insights, generate coherent summaries, and even propose novel research directions. However, ethical considerations remain paramount, including concerns about algorithmic bias, data privacy, and the appropriate attribution of AI-assisted work.</p>
+                        <p>The most significant impact has been observed in literature review processes, where AI can reduce weeks of manual work to hours. Additionally, AI-powered tools enhance research quality by providing instant plagiarism checks, generating properly formatted citations, and ensuring adherence to academic writing standards across various citation styles including APA, MLA, and Chicago formats. The democratization of research tools through browser extensions makes advanced AI capabilities accessible to students and researchers at all levels.</p>
+                        <p>Looking forward, AI is expected to further revolutionize academic research through predictive analytics, automated hypothesis generation, and collaborative research platforms. These advancements promise to accelerate scientific discovery while maintaining rigorous academic standards and ethical research practices.</p>
+                    </div>
+                    <div class="text-info">
+                        <span><i class="fas fa-ruler"></i> 580 words</span>
+                        <span><i class="fas fa-clock"></i> Graduate level</span>
+                        <span><i class="fas fa-lock"></i> Text protected</span>
+                    </div>
+                </div>
+                
+                <div class="demo-results-card">
+                    <div class="demo-tabs">
+                        <button class="demo-tab active" data-tab="summary">
+                            <i class="fas fa-file-contract"></i> Summary
+                        </button>
+                        <button class="demo-tab" data-tab="plagiarism">
+                            <i class="fas fa-search"></i> Plagiarism
+                        </button>
+                        <button class="demo-tab" data-tab="insights">
+                            <i class="fas fa-lightbulb"></i> Insights
+                        </button>
+                        <button class="demo-tab" data-tab="memo">
+                            <i class="fas fa-sticky-note"></i> Memo
+                        </button>
+                        <button class="demo-tab" data-tab="citations">
+                            <i class="fas fa-quote-right"></i> Citations
+                        </button>
+                        <button class="demo-tab" data-tab="export">
+                            <i class="fas fa-download"></i> Export
+                        </button>
+                    </div>
+                    
+                    <div class="demo-results">
+                        <!-- Summary Tab -->
+                        <div class="tab-content active" id="summaryTab">
+                            <div class="result-header">
+                                <h4><i class="fas fa-check-circle"></i> Summary Generated</h4>
+                                <span class="result-meta">2.1s processing</span>
+                            </div>
+                            <div class="result-body">
+                                <div class="summary-preview">
+                                    <div class="summary-content-scroll">
+                                        <p>AI is transforming academic research by enabling efficient processing of literature, pattern recognition, and ensuring methodological consistency. Modern systems reduce literature review time from weeks to hours while maintaining academic standards. Key applications include automated summarization, plagiarism detection, citation generation, and research quality enhancement across various disciplines and citation formats. Browser-based extensions democratize access to these advanced capabilities for all academic users.</p>
+                                    </div>
+                                    <div class="summary-actions">
+                                        <button class="copy-btn"><i class="fas fa-copy"></i> Copy Summary</button>
+                                    </div>
+                                </div>
+                                <div class="result-stats">
+                                    <span class="stat"><i class="fas fa-ruler"></i> 85% shorter</span>
+                                    <span class="stat"><i class="fas fa-clock"></i> Generated in 2.3s</span>
+                                    <span class="stat"><i class="fas fa-check"></i> 4 key points extracted</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Plagiarism Tab -->
+                        <div class="tab-content" id="plagiarismTab">
+                            <div class="result-header">
+                                <h4><i class="fas fa-shield-alt"></i>Check Completed</h4>
+                                <span class="result-meta">Checked against 1,000+ sources</span>
+                            </div>
+                            <div class="result-body">
+                                <div class="plagiarism-score">
+                                    <div class="score-square">
+                                        <div class="score-percent">0%</div>
+                                        <div class="score-label">Similarity</div>
+                                    </div>
+                                    <div class="score-text">
+                                        <h5>Original Content</h5>
+                                        <p>No matches found</p>
+                                        <p style="font-size: 0.9rem; margin-top: 10px; color: var(--gray-500);">
+                                            <i class="fas fa-check-circle"></i> Passed all checks
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Insights Tab -->
+                        <div class="tab-content" id="insightsTab">
+                            <div class="result-header">
+                                <h4><i class="fas fa-brain"></i> Research Insights</h4>
+                                <span class="result-meta">5 insights generated</span>
+                            </div>
+                            <div class="result-body">
+                                <div class="insights-grid">
+                                    <div class="insight-new">
+                                        <h5>Efficiency Gain</h5>
+                                        <p>AI reduces literature review time by 90% compared to manual methods</p>
+                                    </div>
+                                    <div class="insight-new">
+                                        <h5>Ethical Focus</h5>
+                                        <p>Algorithmic bias and data privacy are primary concerns requiring ongoing attention</p>
+                                    </div>
+                                    <div class="insight-new">
+                                        <h5>Quality Enhancement</h5>
+                                        <p>Automated citation and formatting improves academic writing consistency by 75%</p>
+                                    </div>
+                                    <div class="insight-new">
+                                        <h5>Accessibility</h5>
+                                        <p>Browser extensions democratize access to advanced AI research tools</p>
+                                    </div>
+                                    <div class="insight-new">
+                                        <h5>Future Trends</h5>
+                                        <p>Predictive analytics and automated hypothesis generation will further revolutionize research</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Memo Tab -->
+                        <div class="tab-content" id="memoTab">
+                            <div class="result-header">
+                                <h4><i class="fas fa-sticky-note"></i> Memo Generated</h4>
+                                <span class="result-meta">Formatted for academic use</span>
+                            </div>
+                            <div class="result-body">
+                                <div class="memo-preview">
+                                    <div class="memo-content-scroll">
+                                        <h5>Research Memo: AI in Academic Research</h5>
+                                        <p><strong>Date Generated:</strong> <span id="memoDateDisplay">December 23, 2024</span></p>
+                                        <p><strong>Source:</strong> Sample research text on AI integration</p>
+                                        <p><strong>Key Findings:</strong></p>
+                                        <ul>
+                                            <li>AI transforms literature review processes (90% time reduction)</li>
+                                            <li>Ethical considerations remain critical (bias, privacy, attribution)</li>
+                                            <li>Multiple applications: summarization, plagiarism checks, citations</li>
+                                            <li>Enhances research quality and consistency across formats</li>
+                                            <li>Browser extensions democratize access to research tools</li>
+                                            <li>Future trends include predictive analytics and hypothesis generation</li>
+                                            <li>AI systems identify patterns that might elude human researchers</li>
+                                            <li>Ensures consistency in methodology and reporting</li>
+                                            <li>Advanced NLP enables comprehension of complex academic texts</li>
+                                            <li>Maintains rigorous academic standards while accelerating discovery</li>
+                                        </ul>
+                                    </div>
+                                    <div class="memo-actions">
+                                        <button class="copy-btn"><i class="fas fa-copy"></i> Copy Memo</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                                                <!-- Citations Tab -->
+                        <div class="tab-content" id="citationsTab">
+                            <div class="result-header">
+                                <h4><i class="fas fa-book"></i> Generated Citations</h4>
+                                <span class="result-meta">Select citation style</span>
+                            </div>
+                            <div class="result-body">
+                                <div class="citation-style-selector">
+                                    <select id="citationStyle">
+                                        <option value="apa">APA 7th Edition</option>
+                                        <option value="mla">MLA 9th Edition</option>
+                                    </select>
+                                </div>
+                                <div class="citation-box">
+                                    <div class="citation-text-scroll" id="citationTextDisplay">
+                                        Researcher, A. (2024). Artificial intelligence in modern academic research: Transformations and ethical considerations. Journal of AI Studies, 15(2), 123-145. https://doi.org/10.1234/ai.2024
+                                        
+Johnson, D. (2023). Natural language processing in academic research: A review of current applications. Computational Linguistics Review, 42(3), 45-67.
+
+Smith, B., & Chen, L. (2022). Machine learning approaches to research methodology. AI Research Methods, 8(1), 89-112.
+                                    </div>
+                                    <div class="citation-actions">
+                                        <button class="copy-btn"><i class="fas fa-copy"></i> Copy Citation</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Export Tab -->
+                        
+                        <!-- Export Tab -->
+                        <div class="tab-content" id="exportTab">
+                            <div class="result-header">
+                                <h4><i class="fas fa-download"></i> Export Options</h4>
+                                <span class="result-meta">Export your research text</span>
+                            </div>
+                            <div class="result-body">
+                                <div class="export-options">
+                                    <div class="export-option">
+                                        <div class="export-icon">
+                                            <i class="fab fa-google-drive"></i>
+                                        </div>
+                                        <div class="export-info">
+                                            <h5>Google Docs</h5>
+                                            <p>Save to Google Drive with collaborative editing and sharing</p>
+                                        </div>
+                                        <button class="export-btn" data-format="google">
+                                            <i class="fas fa-external-link-alt"></i> Open
+                                        </button>
+                                    </div>
+                                    
+                                    <div class="export-option">
+                                        <div class="export-icon">
+                                            <i class="fas fa-file-pdf"></i>
+                                        </div>
+                                        <div class="export-info">
+                                            <h5>PDF Document</h5>
+                                            <p>Download as PDF with proper formatting and layout</p>
+                                        </div>
+                                        <button class="export-btn" data-format="pdf">
+                                            <i class="fas fa-download"></i> Download
+                                        </button>
+                                    </div>
+                                    
+                                    <div class="export-option coming-soon">
+                                        <div class="export-icon">
+                                            <i class="fas fa-file-word"></i>
+                                        </div>
+                                        <div class="export-info">
+                                            <h5>Microsoft Word</h5>
+                                            <p>Formatted .docx file with academic styling (Coming Soon)</p>
+                                        </div>
+                                        <button class="export-btn coming-soon" data-format="word">
+                                            <i class="fas fa-clock"></i> Coming Soon
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="export-status" id="exportStatus"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing Section - Simplified Monthly Only -->
+    <section id="pricing" class="pricing-section">
+        <div class="container">
+            <div class="section-header">
+                <h2>Choose Your Plan</h2>
+                <p>Simple pricing with no hidden fees</p>
+            </div>
+            
+            <!-- Simplified Pricing - Monthly Only -->
+            <div class="pricing-simplified">
+                <div class="plans-wrapper-simplified">
+                    <div class="plan-card-simplified">
+                        <div class="plan-card-header-simplified">
+                            <h3>Sorvide Basic</h3>
+                            <div class="plan-price-display-simplified">
+                                <span class="price-amount-simplified">$0</span>
+                                <span class="price-period-simplified">/month</span>
+                            </div>
+                        </div>
+                        
+                        <ul class="plan-features-simplified">
+                            <li><i class="fas fa-check"></i> 5 Daily Summaries</li>
+                            <li><i class="fas fa-check"></i> Basic Chrome Extension</li>
+                            <li><i class="fas fa-times"></i> Plagiarism Checking</li>
+                            <li><i class="fas fa-times"></i> AI Insights & Analysis</li>
+                            <li><i class="fas fa-times"></i> Citation Generation</li>
+                            <li><i class="fas fa-times"></i> Export Functionality</li>
+                            <li><i class="fas fa-times"></i> Priority Processing</li>
+                        </ul>
+                        
+                        <a href="#download" class="btn-outline btn-block">Start Free</a>
+                    </div>
+                    
+                    <div class="plan-card-simplified pro-simplified">
+                        <div class="popular-badge-simplified">MOST POPULAR</div>
+                        
+                        <div class="plan-card-header-simplified">
+                            <h3>Sorvide Pro</h3>
+                            <div class="plan-price-display-simplified">
+                                <span class="price-amount-simplified">$9.99</span>
+                                <span class="price-period-simplified">/month</span>
+                            </div>
+                        </div>
+                        
+                        <ul class="plan-features-simplified">
+                            <li><i class="fas fa-check"></i> Unlimited Summaries</li>
+                            <li><i class="fas fa-check"></i> Advanced Plagiarism Check</li>
+                            <li><i class="fas fa-check"></i> Smart AI insights</li>
+                            <li><i class="fas fa-check"></i> Citation Generation</li>
+                            <li><i class="fas fa-check"></i> Export to PDF/Docs</li>
+                            <li><i class="fas fa-check"></i> Priority Processing</li>
+                            <li><i class="fas fa-check"></i> Research Memo Generation</li>
+                        </ul>
+                        
+                        <a href="https://buy.stripe.com/fZueVcajQ1VP0jRacg33W00" class="btn-primary btn-block">
+                            Get Monthly Plan
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ Section -->
+    <section id="faq" class="faq-section">
+        <div class="container">
+            <div class="section-header">
+                <h2>Frequently Asked Questions</h2>
+                <p>Everything you need to know about Sorvide</p>
+            </div>
+            
+            <div class="faq-container">
+                <div class="faq-column">
+                    <div class="faq-item">
+                        <button class="faq-question">
+                            How does Sorvide work?
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                        <div class="faq-answer">
+                            <p>Sorvide is a Chrome extension that analyzes text directly in your browser. Simply highlight any text on a webpage or PDF and instantly get AI-powered summaries, plagiarism checks, citations, and insights.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="faq-item">
+                        <button class="faq-question">
+                            Is my research data private and secure?
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                        <div class="faq-answer">
+                            <p>Yes! For free features, all processing happens locally in your browser. For Pro features, we use encrypted API calls and never store your research content. We're fully GDPR compliant and prioritize user privacy above all else.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="faq-item">
+                        <button class="faq-question">
+                            What citation styles are supported?
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                        <div class="faq-answer">
+                            <p>Sorvide only supports APA (7th edition) and MLA (9th edition) citation styles.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="faq-item">
+                        <button class="faq-question">
+                            Can I use Sorvide for academic papers?
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                        <div class="faq-answer">
+                            <p>Absolutely! Sorvide is specifically designed for academic use. Thousands of students and researchers use it for literature reviews, paper writing, thesis work, and ensuring academic integrity through our plagiarism checker.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="faq-item">
+                        <button class="faq-question">
+                            How accurate is the AI summary?
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                        <div class="faq-answer">
+                            <p>Our AI summaries maintain 98% accuracy in preserving the original meaning and key points. The system uses advanced NLP models trained on academic texts to ensure scholarly accuracy and context preservation.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="faq-item">
+                        <button class="faq-question">
+                            Can I use Sorvide offline?
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                        <div class="faq-answer">
+                            <p>Basic summarization features work offline. For advanced features like plagiarism checking, citation generation, and detailed insights, an internet connection is required to access our secure servers.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="faq-column">
+                    <div class="faq-item">
+                        <button class="faq-question">
+                            How do I activate my Pro license?
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                        <div class="faq-answer">
+                            <p>After purchasing Sorvide Pro, you'll receive a license key via email within 24 hours of purchase. Open the Sorvide extension, click the crown icon, enter your license key, and all Pro features unlock immediately for the duration of your key.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="faq-item">
+                        <button class="faq-question">
+                            What happens after my 5 free daily summaries?
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                        <div class="faq-answer">
+                            <p>Your free summaries reset daily at midnight (based on your timezone). You can wait for the reset or upgrade to Pro for unlimited summaries and all advanced features.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="faq-item">
+                        <button class="faq-question">
+                            How accurate is the plagiarism checker?
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                        <div class="faq-answer">
+                            <p>Our plagiarism checker has 98% accuracy and compares against thousands of academic sources, journals, research papers, and web content.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="faq-item">
+                        <button class="faq-question">
+                            What browsers are supported?
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                        <div class="faq-answer">
+                            <p>Sorvide works on all Chromium browsers including Chrome, Edge, Brave, Opera, and Vivaldi.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="faq-item">
+                        <button class="faq-question">
+                            Does Sorvide store or reuse documents?
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                        <div class="faq-answer">
+                            <p>No, Sorvide does not store or reuse your documents. We process our files securely in real time and are not saved after analysis.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="faq-item">
+                        <button class="faq-question">
+                            Do you offer refunds?
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                        <div class="faq-answer">
+                            <p>Unfortunately, we do not offer refunds at this time. Our AI models are resource-intensive and costly to run. However, you can cancel your subscription at any time to avoid future charges after the current billing period.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Simple Footer -->
+    <footer class="simple-footer">
+        <div class="container">
+            <div class="footer-content-simple">
+                <div class="footer-logo-simple">
+                    <a href="#home" class="footer-logo-link">
+                        <span class="footer-logo-text">Sorvide</span>
+                    </a>
+                </div>
+                
+                <div class="footer-links-simple">
+                    <a href="terms.html">Terms of Service</a>
+                    <a href="privacy.html">Privacy Policy</a>
+                </div>
+                
+                <div class="footer-copyright">
+                    <p>&copy; <span id="currentYear"></span> Sorvide</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>

@@ -2523,7 +2523,7 @@ p {
     }
 }
 
-/* Extra small screens */
+/* ========== EXTRA SMALL SCREENS ========== */
 @media (max-width: 480px) {
     .mobile-notification {
         padding: 8px 10px;
@@ -2640,8 +2640,79 @@ p {
     }
 }
 
-/* Ensure desktop stays the same */
-@media (min-width: 769px) {
+/* ========== IPHONE 11 & SIMILAR DEVICE OPTIMIZATION ========== */
+@media (max-width: 480px) and (min-width: 375px) {
+    .hero-title {
+        font-size: 2.2rem !important; /* Bigger than 1.8rem, perfect for iPhone 11 */
+        line-height: 1.15;
+    }
+    
+    .hero-subtitle {
+        font-size: 1.2rem !important; /* Bigger than 1.1rem */
+        line-height: 1.5 !important;
+    }
+    
+    /* Optional: Adjust hero spacing for the larger text */
+    .hero-section {
+        padding-top: 60px !important;
+        min-height: 85vh;
+    }
+    
+    /* Optional: Adjust button sizing if needed */
+    .btn-primary, .btn-outline {
+        padding: 16px 20px !important;
+        font-size: 1rem !important;
+    }
+}
+
+/* ========== TABLET & LARGE PHONE SPECIFIC FIXES ========== */
+/* Targets iPad portrait, large phones in landscape, etc. */
+@media (min-width: 769px) and (max-width: 1024px) {
+    /* Optional: Slightly reduce navbar padding if needed */
+    .navbar {
+        padding: 10px 0;
+        margin: 10px 15px 0 15px;
+        max-width: calc(100% - 30px);
+    }
+    
+    /* Adjust hero section for tablet */
+    .hero-title {
+        font-size: 2.4rem !important; /* Smaller than desktop, bigger than mobile */
+    }
+    
+    .hero-subtitle {
+        font-size: 1.2rem !important;
+    }
+    
+    /* Make demo section fit tablet screens better */
+    .demo-container {
+        grid-template-columns: 1fr 1fr; /* Side-by-side on tablet */
+        gap: 20px;
+        transform: none; /* Remove mobile scaling */
+        max-width: 90%;
+        margin: 0 auto;
+    }
+    
+    .demo-text-card,
+    .demo-results-card {
+        height: 500px !important; /* Adjust height for tablet */
+    }
+    
+    /* Adjust pricing cards for tablet - 2 columns */
+    .plans-wrapper-simplified {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 25px;
+    }
+    
+    /* Ensure tabs are readable */
+    .demo-tab {
+        font-size: 0.7rem !important;
+        min-height: 50px !important;
+    }
+}
+
+/* ========== DESKTOP STYLES ========== */
+@media (min-width: 1025px) {
     .mobile-notification {
         display: none !important;
     }

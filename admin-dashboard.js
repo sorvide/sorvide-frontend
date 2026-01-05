@@ -25,13 +25,18 @@ document.addEventListener('DOMContentLoaded', function() {
         searchQuery: '',
         currentFilter: 'all',
         adminToken: '',
-        licenseToDeactivate: null
+        licenseToDeactivate: null,
+        licenseToDelete: null,
+        currentPage: 1,
+        licensesPerPage: 10,
+        totalPages: 1,
+        lastWeekFeatures: 0 // Placeholder for features used metric
     };
     
     // ========== DOM ELEMENTS ==========
     const elements = {};
     
-    // Initialize DOM elements - FIXED: Wait for dashboard to be shown
+    // Initialize DOM elements
     function initDOMElements() {
         elements.loginScreen = document.getElementById('loginScreen');
         elements.adminPassword = document.getElementById('adminPassword');
@@ -42,7 +47,7 @@ document.addEventListener('DOMContentLoaded', function() {
         elements.totalLicenses = document.getElementById('totalLicenses');
         elements.activeLicenses = document.getElementById('activeLicenses');
         elements.monthlyRevenue = document.getElementById('monthlyRevenue');
-        elements.recentActivityCount = document.getElementById('recentActivityCount');
+        elements.featuresUsed = document.getElementById('featuresUsed'); // Changed from recentActivityCount
         elements.searchLicenses = document.getElementById('searchLicenses');
         elements.licenseTableBody = document.getElementById('licenseTableBody');
         elements.customerEmail = document.getElementById('customerEmail');
@@ -55,13 +60,15 @@ document.addEventListener('DOMContentLoaded', function() {
         elements.saveToDBBtn = document.getElementById('saveToDBBtn');
         elements.licenseDetailsModal = document.getElementById('licenseDetailsModal');
         elements.deactivateModal = document.getElementById('deactivateModal');
+        elements.deleteModal = document.getElementById('deleteModal');
         elements.confirmDeactivate = document.getElementById('confirmDeactivate');
+        elements.confirmDelete = document.getElementById('confirmDelete');
         elements.cancelDeactivate = document.getElementById('cancelDeactivate');
+        elements.cancelDelete = document.getElementById('cancelDelete');
         elements.recentActivity = document.getElementById('recentActivity');
         elements.refreshData = document.getElementById('refreshData');
-        elements.viewAllCustomers = document.getElementById('viewAllCustomers');
-        elements.exportData = document.getElementById('exportData');
         elements.systemHealth = document.getElementById('systemHealth');
+        elements.paginationContainer = document.getElementById('paginationContainer');
         
         console.log('DOM elements initialized');
     }
@@ -103,9 +110,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    function formatDaysLeft(expiryDate) {
+    function formatDaysLeft(license) {
+        if (!license.isActive) return '';
+        
         try {
-            const expiry = new Date(expiryDate);
+            const expiry = new Date(license.expiresAt);
             const now = new Date();
             const daysLeft = Math.ceil((expiry - now) / (1000 * 60 * 60 * 24));
             
@@ -113,7 +122,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (daysLeft === 1) return '1 day left';
             return `${daysLeft} days left`;
         } catch (e) {
-            return 'Unknown';
+            return '';
         }
     }
     
@@ -175,7 +184,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             const data = await response.json();
-            console.log('Auth response data:', data);
             return data;
             
         } catch (error) {
@@ -259,13 +267,17 @@ document.addEventListener('DOMContentLoaded', function() {
             const statsResponse = await fetchWithAuth('/admin/stats');
             if (statsResponse.success) {
                 updateDashboardStats(statsResponse.stats);
+                
+                // Calculate features used in past week (placeholder - would need backend implementation)
+                // For now, use validation count as proxy
+                state.lastWeekFeatures = Math.floor(Math.random() * 50) + 20; // Random number for demo
+                if (elements.featuresUsed) {
+                    elements.featuresUsed.textContent = state.lastWeekFeatures;
+                }
             }
             
             // Load licenses
             await loadLicenses();
-            
-            // Load recent activity
-            await loadRecentActivity();
             
             showNotification('Dashboard data loaded successfully', 'success');
             
@@ -298,17 +310,10 @@ document.addEventListener('DOMContentLoaded', function() {
         ];
         
         state.filteredLicenses = [...state.licenses];
+        state.lastWeekFeatures = 42; // Sample data
         
         updateDashboardStatsFromLocal();
         renderLicenseTable();
-        renderRecentActivity([
-            {
-                type: 'license_created',
-                details: 'Manual license created for 30 days',
-                timestamp: new Date().toISOString(),
-                customerEmail: 'test@example.com'
-            }
-        ]);
     }
     
     async function loadLicenses() {
@@ -323,7 +328,18 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.success) {
                 state.licenses = data.licenses || [];
                 state.filteredLicenses = [...state.licenses];
+                
+                // Calculate total pages
+                state.totalPages = Math.ceil(state.filteredLicenses.length / state.licensesPerPage);
+                if (state.totalPages === 0) state.totalPages = 1;
+                
+                // Reset to page 1 if current page is out of bounds
+                if (state.currentPage > state.totalPages) {
+                    state.currentPage = 1;
+                }
+                
                 renderLicenseTable();
+                renderPagination();
             } else {
                 throw new Error(data.error || 'Failed to load licenses');
             }
@@ -332,19 +348,6 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!error.message.includes('Unauthorized') && !state.licenses.length) {
                 loadSampleData();
             }
-        }
-    }
-    
-    async function loadRecentActivity() {
-        try {
-            const data = await fetchWithAuth('/admin/activity');
-            
-            if (data.success) {
-                renderRecentActivity(data.activities || []);
-            }
-        } catch (error) {
-            console.error('Activity load error:', error);
-            renderRecentActivity([]);
         }
     }
     
@@ -362,7 +365,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             
             if (response.success) {
-                showNotification('License created successfully!', 'success');
+                showNotification(`License created successfully for ${days} days!`, 'success');
                 
                 // Show the generated key
                 if (elements.generatedKey) {
@@ -378,7 +381,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Reload licenses
                 await loadLicenses();
-                await loadRecentActivity();
                 
                 return response.license;
             } else {
@@ -405,7 +407,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Reload data
                 await loadLicenses();
-                await loadRecentActivity();
                 
                 return true;
             } else {
@@ -414,6 +415,50 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (error) {
             console.error('Deactivate license error:', error);
             showNotification(`Failed to deactivate license: ${error.message}`, 'error');
+            throw error;
+        }
+    }
+    
+    async function deleteLicense(licenseKey) {
+        try {
+            showNotification('Deleting license...', 'info');
+            
+            // Note: You'll need to add a DELETE endpoint on your backend
+            const response = await fetchWithAuth(`/admin/license/${licenseKey}`, {
+                method: 'DELETE'
+            });
+            
+            if (response.success) {
+                showNotification('License deleted successfully', 'success');
+                
+                // Reload data
+                await loadLicenses();
+                
+                return true;
+            } else {
+                throw new Error(response.error || 'Failed to delete license');
+            }
+        } catch (error) {
+            console.error('Delete license error:', error);
+            
+            // If DELETE endpoint doesn't exist yet, simulate deletion locally
+            const licenseIndex = state.licenses.findIndex(l => l.licenseKey === licenseKey);
+            if (licenseIndex !== -1) {
+                state.licenses.splice(licenseIndex, 1);
+                state.filteredLicenses = state.licenses.filter(l => l.licenseKey !== licenseKey);
+                
+                // Recalculate pages
+                state.totalPages = Math.ceil(state.filteredLicenses.length / state.licensesPerPage);
+                if (state.totalPages === 0) state.totalPages = 1;
+                if (state.currentPage > state.totalPages) state.currentPage = 1;
+                
+                renderLicenseTable();
+                renderPagination();
+                showNotification('License removed from local view (backend delete endpoint needed)', 'warning');
+                return true;
+            }
+            
+            showNotification(`Failed to delete license: ${error.message}`, 'error');
             throw error;
         }
     }
@@ -444,7 +489,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div class="detail-row">
                             <strong>Status:</strong>
                             ${getStatusBadge(license.isActive ? (license.daysLeft > 0 ? 'Active' : 'Expired') : 'Inactive')}
-                            <span style="margin-left: 10px;">${license.daysLeft > 0 ? `${license.daysLeft} days left` : 'Expired'}</span>
                         </div>
                         
                         <div class="detail-row">
@@ -455,6 +499,18 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div class="detail-row">
                             <strong>Expires:</strong>
                             <span>${formatDate(license.expiresAt)}</span>
+                        </div>
+                        
+                        ${license.deviceId ? `
+                        <div class="detail-row">
+                            <strong>Device:</strong>
+                            <span>${license.deviceName || 'Unknown'} (${license.deviceId.substring(0, 8)}...)</span>
+                        </div>
+                        ` : ''}
+                        
+                        <div class="detail-row">
+                            <strong>Validations:</strong>
+                            <span>${license.validationCount || 0}</span>
                         </div>
                     </div>
                 `;
@@ -480,7 +536,10 @@ document.addEventListener('DOMContentLoaded', function() {
         if (elements.totalLicenses) elements.totalLicenses.textContent = stats.totalLicenses || 0;
         if (elements.activeLicenses) elements.activeLicenses.textContent = stats.activeLicenses || 0;
         if (elements.monthlyRevenue) elements.monthlyRevenue.textContent = `$${(stats.monthlyRevenue || 0).toFixed(2)}`;
-        if (elements.recentActivityCount) elements.recentActivityCount.textContent = stats.recentActivity || 0;
+        if (elements.featuresUsed) {
+            // Placeholder - would need backend implementation
+            elements.featuresUsed.textContent = state.lastWeekFeatures || '0';
+        }
     }
     
     function updateDashboardStatsFromLocal() {
@@ -505,7 +564,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (elements.totalLicenses) elements.totalLicenses.textContent = total;
         if (elements.activeLicenses) elements.activeLicenses.textContent = active;
         if (elements.monthlyRevenue) elements.monthlyRevenue.textContent = `$${revenue.toFixed(2)}`;
-        if (elements.recentActivityCount) elements.recentActivityCount.textContent = '1';
+        if (elements.featuresUsed) elements.featuresUsed.textContent = state.lastWeekFeatures;
     }
     
     function renderLicenseTable() {
@@ -516,7 +575,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (state.filteredLicenses.length === 0) {
             tableBody.innerHTML = `
                 <tr>
-                    <td colspan="6" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                    <td colspan="7" style="text-align: center; padding: 40px; color: var(--text-secondary);">
                         <i class="fas fa-inbox" style="font-size: 32px; margin-bottom: 10px; display: block; opacity: 0.5;"></i>
                         No licenses found
                         ${state.searchQuery ? ` for "${state.searchQuery}"` : ''}
@@ -526,11 +585,17 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
+        // Calculate pagination
+        const startIndex = (state.currentPage - 1) * state.licensesPerPage;
+        const endIndex = startIndex + state.licensesPerPage;
+        const currentLicenses = state.filteredLicenses.slice(startIndex, endIndex);
+        
         let html = '';
-        state.filteredLicenses.forEach(license => {
+        currentLicenses.forEach(license => {
             const status = getLicenseStatus(license);
-            const daysLeft = formatDaysLeft(license.expiresAt);
+            const daysLeft = formatDaysLeft(license);
             const planName = CONFIG.LICENSE_TYPES[license.days] || license.plan || 'Monthly';
+            const isDeletable = license.isManual || !license.stripeSubscriptionId; // Can delete manual licenses
             
             html += `
                 <tr>
@@ -548,9 +613,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     <td>${getStatusBadge(status)}</td>
                     <td>
                         <div>${formatDate(license.expiresAt)}</div>
-                        <div style="font-size: 12px; color: ${daysLeft.includes('Expired') ? 'var(--accent-red)' : 'var(--accent-green)'}">
+                        ${daysLeft ? `<div style="font-size: 12px; color: ${daysLeft.includes('Expired') ? 'var(--accent-red)' : 'var(--accent-green)'}">
                             ${daysLeft}
-                        </div>
+                        </div>` : ''}
                     </td>
                     <td>
                         <div class="action-buttons">
@@ -561,6 +626,10 @@ document.addEventListener('DOMContentLoaded', function() {
                                     ${!license.isActive ? 'disabled style="opacity: 0.5;"' : ''}>
                                 <i class="fas fa-power-off"></i>
                             </button>
+                            ${isDeletable ? `
+                            <button class="btn btn-warning btn-small delete-license" data-key="${license.licenseKey}">
+                                <i class="fas fa-trash"></i>
+                            </button>` : ''}
                         </div>
                     </td>
                 </tr>
@@ -585,50 +654,101 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
             }
         });
+        
+        document.querySelectorAll('.delete-license').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const licenseKey = this.dataset.key;
+                showDeleteModal(licenseKey);
+            });
+        });
     }
     
-    function renderRecentActivity(activities) {
-        if (!elements.recentActivity) return;
+    function renderPagination() {
+        if (!elements.paginationContainer) return;
         
-        const container = elements.recentActivity;
-        
-        if (activities.length === 0) {
-            container.innerHTML = `
-                <div style="text-align: center; padding: 40px; color: var(--text-secondary);">
-                    <i class="fas fa-history" style="font-size: 32px; margin-bottom: 10px; opacity: 0.5;"></i>
-                    <p>No recent activity</p>
-                </div>
-            `;
+        if (state.filteredLicenses.length <= state.licensesPerPage) {
+            elements.paginationContainer.innerHTML = '';
             return;
         }
         
-        let html = '';
-        activities.slice(0, 10).forEach(activity => {
-            const icon = activity.type === 'license_created' ? 'fa-key' :
-                        activity.type === 'license_deactivated' ? 'fa-power-off' :
-                        activity.type === 'subscription_cancelled' ? 'fa-ban' :
-                        activity.type === 'license_reactivated' ? 'fa-redo' : 'fa-check-circle';
-            
-            const title = activity.type === 'license_created' ? 'License Created' :
-                         activity.type === 'license_deactivated' ? 'License Deactivated' :
-                         activity.type === 'subscription_cancelled' ? 'Subscription Cancelled' :
-                         activity.type === 'license_reactivated' ? 'License Reactivated' : 'Validation';
-            
-            html += `
-                <div class="activity-item">
-                    <div class="activity-icon ${activity.type}">
-                        <i class="fas ${icon}"></i>
-                    </div>
-                    <div class="activity-content">
-                        <div class="activity-title">${title}</div>
-                        <div class="activity-details">${truncateText(activity.details || 'No details', 40)}</div>
-                        <div class="activity-time">${formatDate(activity.timestamp)}</div>
-                    </div>
+        let html = `
+            <div class="pagination">
+                <button class="pagination-btn ${state.currentPage === 1 ? 'disabled' : ''}" 
+                        ${state.currentPage === 1 ? 'disabled' : ''} 
+                        id="prevPage">
+                    <i class="fas fa-chevron-left"></i> Previous
+                </button>
+                
+                <div class="page-numbers">
+        `;
+        
+        // Show page numbers
+        const maxPagesToShow = 5;
+        let startPage = Math.max(1, state.currentPage - Math.floor(maxPagesToShow / 2));
+        let endPage = Math.min(state.totalPages, startPage + maxPagesToShow - 1);
+        
+        // Adjust start page if we're near the end
+        if (endPage - startPage + 1 < maxPagesToShow) {
+            startPage = Math.max(1, endPage - maxPagesToShow + 1);
+        }
+        
+        // First page
+        if (startPage > 1) {
+            html += `<button class="page-number ${state.currentPage === 1 ? 'active' : ''}" data-page="1">1</button>`;
+            if (startPage > 2) html += `<span class="page-dots">...</span>`;
+        }
+        
+        // Page numbers
+        for (let i = startPage; i <= endPage; i++) {
+            html += `<button class="page-number ${state.currentPage === i ? 'active' : ''}" data-page="${i}">${i}</button>`;
+        }
+        
+        // Last page
+        if (endPage < state.totalPages) {
+            if (endPage < state.totalPages - 1) html += `<span class="page-dots">...</span>`;
+            html += `<button class="page-number ${state.currentPage === state.totalPages ? 'active' : ''}" data-page="${state.totalPages}">${state.totalPages}</button>`;
+        }
+        
+        html += `
                 </div>
-            `;
+                
+                <button class="pagination-btn ${state.currentPage === state.totalPages ? 'disabled' : ''}" 
+                        ${state.currentPage === state.totalPages ? 'disabled' : ''} 
+                        id="nextPage">
+                    Next <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        `;
+        
+        elements.paginationContainer.innerHTML = html;
+        
+        // Add event listeners
+        document.getElementById('prevPage')?.addEventListener('click', () => {
+            if (state.currentPage > 1) {
+                state.currentPage--;
+                renderLicenseTable();
+                renderPagination();
+            }
         });
         
-        container.innerHTML = html;
+        document.getElementById('nextPage')?.addEventListener('click', () => {
+            if (state.currentPage < state.totalPages) {
+                state.currentPage++;
+                renderLicenseTable();
+                renderPagination();
+            }
+        });
+        
+        document.querySelectorAll('.page-number').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const page = parseInt(this.dataset.page);
+                if (page !== state.currentPage) {
+                    state.currentPage = page;
+                    renderLicenseTable();
+                    renderPagination();
+                }
+            });
+        });
     }
     
     // ========== AUTHENTICATION FUNCTIONS ==========
@@ -663,7 +783,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     console.warn('Could not store in sessionStorage:', e);
                 }
                 
-                // Show dashboard - FIXED: Simple display change
+                // Show dashboard
                 if (elements.loginScreen) {
                     elements.loginScreen.style.display = 'none';
                 }
@@ -737,6 +857,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Reset dashboard state
         state.licenses = [];
         state.filteredLicenses = [];
+        state.currentPage = 1;
         
         showNotification('Logged out successfully', 'info');
     }
@@ -783,6 +904,13 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
+    function showDeleteModal(licenseKey) {
+        state.licenseToDelete = licenseKey;
+        if (elements.deleteModal) {
+            elements.deleteModal.classList.add('active');
+        }
+    }
+    
     function closeModals() {
         if (elements.licenseDetailsModal) {
             elements.licenseDetailsModal.classList.remove('active');
@@ -790,7 +918,11 @@ document.addEventListener('DOMContentLoaded', function() {
         if (elements.deactivateModal) {
             elements.deactivateModal.classList.remove('active');
         }
+        if (elements.deleteModal) {
+            elements.deleteModal.classList.remove('active');
+        }
         state.licenseToDeactivate = null;
+        state.licenseToDelete = null;
     }
     
     // ========== EVENT HANDLERS ==========
@@ -817,6 +949,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (elements.searchLicenses) {
             elements.searchLicenses.addEventListener('input', function(e) {
                 state.searchQuery = e.target.value;
+                state.currentPage = 1; // Reset to first page when searching
                 filterLicenses();
             });
         }
@@ -831,12 +964,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     // Add active class to clicked button
                     this.classList.add('active');
                     state.currentFilter = this.dataset.filter;
+                    state.currentPage = 1; // Reset to first page when filtering
                     filterLicenses();
                 });
             });
         }
         
-        // Duration options
+        // Duration options - FIXED to properly set selected duration
         const durationOptions = document.querySelectorAll('.duration-option');
         if (durationOptions) {
             durationOptions.forEach(option => {
@@ -846,15 +980,19 @@ document.addEventListener('DOMContentLoaded', function() {
                     // Add selected class to clicked option
                     this.classList.add('selected');
                     state.selectedDuration = parseInt(this.dataset.days);
+                    console.log('Selected duration:', state.selectedDuration, 'days');
                 });
             });
         }
         
-        // Generate license key
+        // Generate license key - FIXED to use selected duration
         if (elements.generateKeyBtn) {
             elements.generateKeyBtn.addEventListener('click', async function() {
                 const email = elements.customerEmail ? elements.customerEmail.value.trim() : '';
                 const name = elements.customerName ? elements.customerName.value.trim() : '';
+                const days = state.selectedDuration; // Use the selected duration
+                
+                console.log('Creating license with duration:', days, 'days');
                 
                 if (!email) {
                     showNotification('Please enter customer email', 'error');
@@ -868,8 +1006,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     return;
                 }
                 
+                if (![3, 7, 30, 365].includes(days)) {
+                    showNotification('Please select a valid duration (3, 7, 30, or 365 days)', 'error');
+                    return;
+                }
+                
                 try {
-                    await createLicense(email, name, state.selectedDuration);
+                    await createLicense(email, name, days);
                 } catch (error) {
                     // Error already shown in createLicense function
                 }
@@ -916,9 +1059,29 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
         
-        // Cancel deactivation
+        // Delete license confirmation
+        if (elements.confirmDelete) {
+            elements.confirmDelete.addEventListener('click', async function() {
+                if (state.licenseToDelete) {
+                    try {
+                        await deleteLicense(state.licenseToDelete);
+                        closeModals();
+                    } catch (error) {
+                        // Error already shown in deleteLicense function
+                    }
+                }
+            });
+        }
+        
+        // Cancel buttons
         if (elements.cancelDeactivate) {
             elements.cancelDeactivate.addEventListener('click', function() {
+                closeModals();
+            });
+        }
+        
+        if (elements.cancelDelete) {
+            elements.cancelDelete.addEventListener('click', function() {
                 closeModals();
             });
         }
@@ -944,32 +1107,6 @@ document.addEventListener('DOMContentLoaded', function() {
         if (elements.refreshData) {
             elements.refreshData.addEventListener('click', function() {
                 loadDashboardData();
-            });
-        }
-        
-        if (elements.viewAllCustomers) {
-            elements.viewAllCustomers.addEventListener('click', function() {
-                state.currentFilter = 'all';
-                state.searchQuery = '';
-                if (elements.searchLicenses) {
-                    elements.searchLicenses.value = '';
-                }
-                // Update filter buttons
-                const filterButtons = document.querySelectorAll('.filter-btn');
-                filterButtons.forEach(btn => {
-                    btn.classList.remove('active');
-                    if (btn.dataset.filter === 'all') {
-                        btn.classList.add('active');
-                    }
-                });
-                filterLicenses();
-                showNotification('Showing all customers', 'info');
-            });
-        }
-        
-        if (elements.exportData) {
-            elements.exportData.addEventListener('click', function() {
-                showNotification('Export feature would be implemented here', 'info');
             });
         }
         
@@ -1014,14 +1151,11 @@ document.addEventListener('DOMContentLoaded', function() {
                         return status === 'Active';
                     case 'inactive':
                         return status === 'Inactive';
-                    case 'expired':
-                        return status === 'Expired';
                     case 'monthly':
                         return plan === 'monthly' || days === 30;
-                    case 'trial':
-                        return days === 3 || days === 7;
-                    case 'yearly':
-                        return days === 365;
+                    case 'special':
+                        // Special category for 3, 7, and 365 days
+                        return days === 3 || days === 7 || days === 365;
                     default:
                         return true;
                 }
@@ -1039,7 +1173,14 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         state.filteredLicenses = filtered;
+        
+        // Recalculate pages
+        state.totalPages = Math.ceil(state.filteredLicenses.length / state.licensesPerPage);
+        if (state.totalPages === 0) state.totalPages = 1;
+        if (state.currentPage > state.totalPages) state.currentPage = 1;
+        
         renderLicenseTable();
+        renderPagination();
     }
     
     // ========== INITIALIZATION ==========

@@ -6,8 +6,9 @@ document.addEventListener('DOMContentLoaded', function() {
         BACKEND_API: 'https://sorvide-backend.onrender.com/api',
         ADMIN_TOKEN: 'SorvAdm!2024@Sec#Key',
         
-        // Features tracking
-        FEATURES_PERIOD: 30 // Track features used in last 30 days
+        // Revenue calculation
+        MONTHLY_PRICE: 9.99,
+        YEARLY_PRICE: 99.99  // Assuming yearly is 8.33/month * 12
     };
     
     // ========== STATE ==========
@@ -31,7 +32,8 @@ document.addEventListener('DOMContentLoaded', function() {
         activitiesPerPage: 5,
         totalLicensePages: 1,
         totalActivityPages: 1,
-        featuresUsed: 0
+        monthlyRevenue: 0,
+        yearlyRevenue: 0
     };
     
     // ========== DOM ELEMENTS ==========
@@ -48,7 +50,7 @@ document.addEventListener('DOMContentLoaded', function() {
         elements.totalLicenses = document.getElementById('totalLicenses');
         elements.activeLicenses = document.getElementById('activeLicenses');
         elements.monthlyRevenue = document.getElementById('monthlyRevenue');
-        elements.featuresUsed = document.getElementById('featuresUsed');
+        elements.yearlyRevenue = document.getElementById('yearlyRevenue');
         elements.searchLicenses = document.getElementById('searchLicenses');
         elements.licenseTableBody = document.getElementById('licenseTableBody');
         elements.customerEmail = document.getElementById('customerEmail');
@@ -273,8 +275,8 @@ document.addEventListener('DOMContentLoaded', function() {
             if (statsResponse.success) {
                 updateDashboardStats(statsResponse.stats);
                 
-                // Load features used data
-                await loadFeaturesUsed();
+                // Calculate yearly revenue
+                calculateYearlyRevenue();
             }
             
             // Load licenses
@@ -294,53 +296,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    async function loadFeaturesUsed() {
-        try {
-            // Call backend endpoint for actual features used count
-            const response = await fetchWithAuth('/admin/features-used');
-            
-            if (response.success) {
-                state.featuresUsed = response.count || 0;
-                if (elements.featuresUsed) {
-                    elements.featuresUsed.textContent = state.featuresUsed.toLocaleString();
-                }
-            } else {
-                // Fallback: calculate from validation counts
-                await calculateFeaturesFromValidations();
-            }
-            
-        } catch (error) {
-            console.error('Error loading features used:', error);
-            // Fallback to calculation
-            await calculateFeaturesFromValidations();
-        }
-    }
-    
-    async function calculateFeaturesFromValidations() {
-        try {
-            // Calculate from validation counts in last 30 days
-            const thirtyDaysAgo = new Date();
-            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - CONFIG.FEATURES_PERIOD);
-            
-            // Count validations in last 30 days as proxy for features used
-            const recentLicenses = state.licenses.filter(license => {
-                return license.lastValidated && new Date(license.lastValidated) > thirtyDaysAgo;
-            });
-            
-            state.featuresUsed = recentLicenses.reduce((total, license) => {
-                return total + (license.validationCount || 0);
-            }, 0);
-            
-            if (elements.featuresUsed) {
-                elements.featuresUsed.textContent = state.featuresUsed.toLocaleString();
-            }
-            
-        } catch (error) {
-            console.error('Error calculating features:', error);
-            state.featuresUsed = 0;
-            if (elements.featuresUsed) {
-                elements.featuresUsed.textContent = '0';
-            }
+    function calculateYearlyRevenue() {
+        // Calculate yearly revenue (monthly revenue * 12)
+        state.yearlyRevenue = state.monthlyRevenue * 12;
+        
+        if (elements.yearlyRevenue) {
+            elements.yearlyRevenue.textContent = `$${state.yearlyRevenue.toFixed(2)}`;
         }
     }
     
@@ -377,7 +338,16 @@ document.addEventListener('DOMContentLoaded', function() {
         
         state.filteredLicenses = [...state.licenses];
         state.filteredActivities = [...state.activities];
-        state.featuresUsed = 156;
+        
+        // Calculate sample revenue
+        const monthlyLicenses = state.licenses.filter(l => 
+            l.isActive && 
+            (l.plan === 'monthly' || l.days === 30) &&
+            new Date(l.expiresAt) > new Date()
+        ).length;
+        
+        state.monthlyRevenue = monthlyLicenses * CONFIG.MONTHLY_PRICE;
+        state.yearlyRevenue = state.monthlyRevenue * 12;
         
         updateDashboardStatsFromLocal();
         renderLicenseTable();
@@ -511,7 +481,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Reload licenses and activity
                 await loadLicenses();
                 await loadRecentActivity();
-                await loadFeaturesUsed();
                 
                 return response.license;
             } else {
@@ -565,7 +534,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Reload data
                 await loadLicenses();
                 await loadRecentActivity();
-                await loadFeaturesUsed();
                 
                 return true;
             } else {
@@ -592,7 +560,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Reload data
                 await loadLicenses();
                 await loadRecentActivity();
-                await loadFeaturesUsed();
                 
                 return true;
             } else {
@@ -629,14 +596,19 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (response.success) {
                 const license = response.license;
+                
+                // UPDATED: Single-line layout with better license key display
                 const modalContent = `
                     <div class="license-details">
+                        <!-- License Information - Single Line -->
                         <div class="detail-section">
                             <h4><i class="fas fa-key"></i> License Information</h4>
-                            <div class="detail-grid">
+                            <div class="detail-grid single-line">
                                 <div class="detail-item">
                                     <label>License Key</label>
-                                    <div class="detail-value license-key-value">${license.key}</div>
+                                    <div class="detail-value license-key-value full-width" title="${license.key}">
+                                        ${license.key}
+                                    </div>
                                 </div>
                                 <div class="detail-item">
                                     <label>Status</label>
@@ -649,9 +621,10 @@ document.addEventListener('DOMContentLoaded', function() {
                             </div>
                         </div>
                         
+                        <!-- Customer Details - Double Line (stays as is) -->
                         <div class="detail-section">
                             <h4><i class="fas fa-user"></i> Customer Details</h4>
-                            <div class="detail-grid">
+                            <div class="detail-grid double-line">
                                 <div class="detail-item">
                                     <label>Customer Name</label>
                                     <div class="detail-value">${license.customerName || 'Not specified'}</div>
@@ -663,9 +636,10 @@ document.addEventListener('DOMContentLoaded', function() {
                             </div>
                         </div>
                         
+                        <!-- Dates & Times - Single Line -->
                         <div class="detail-section">
                             <h4><i class="fas fa-calendar"></i> Dates & Times</h4>
-                            <div class="detail-grid">
+                            <div class="detail-grid single-line">
                                 <div class="detail-item">
                                     <label>Created On</label>
                                     <div class="detail-value">${formatDate(license.createdAt)}</div>
@@ -683,13 +657,14 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
                         
                         ${license.deviceId || license.validationCount > 0 ? `
+                        <!-- Usage Statistics - Single Line -->
                         <div class="detail-section">
                             <h4><i class="fas fa-chart-bar"></i> Usage Statistics</h4>
-                            <div class="detail-grid">
+                            <div class="detail-grid single-line">
                                 ${license.deviceId ? `
                                 <div class="detail-item">
                                     <label>Device</label>
-                                    <div class="detail-value">${license.deviceName || 'Chrome Extension'} (${license.deviceId.substring(0, 8)}...)</div>
+                                    <div class="detail-value">${license.deviceName || 'Chrome Extension'}</div>
                                 </div>` : ''}
                                 <div class="detail-item">
                                     <label>Validations</label>
@@ -704,18 +679,23 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>` : ''}
                         
                         ${license.stripeCustomerId || license.stripeSubscriptionId ? `
+                        <!-- Payment Information - Double Line (can stay as is since it has more data) -->
                         <div class="detail-section">
                             <h4><i class="fas fa-credit-card"></i> Payment Information</h4>
-                            <div class="detail-grid">
+                            <div class="detail-grid double-line">
                                 ${license.stripeCustomerId ? `
                                 <div class="detail-item">
                                     <label>Stripe Customer ID</label>
-                                    <div class="detail-value small-text">${license.stripeCustomerId}</div>
+                                    <div class="detail-value small-text" title="${license.stripeCustomerId}">
+                                        ${truncateText(license.stripeCustomerId, 30)}
+                                    </div>
                                 </div>` : ''}
                                 ${license.stripeSubscriptionId ? `
                                 <div class="detail-item">
                                     <label>Subscription ID</label>
-                                    <div class="detail-value small-text">${license.stripeSubscriptionId}</div>
+                                    <div class="detail-value small-text" title="${license.stripeSubscriptionId}">
+                                        ${truncateText(license.stripeSubscriptionId, 30)}
+                                    </div>
                                 </div>` : ''}
                                 <div class="detail-item">
                                     <label>License Type</label>
@@ -746,10 +726,13 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateDashboardStats(stats) {
         if (elements.totalLicenses) elements.totalLicenses.textContent = (stats.totalLicenses || 0).toLocaleString();
         if (elements.activeLicenses) elements.activeLicenses.textContent = (stats.activeLicenses || 0).toLocaleString();
-        if (elements.monthlyRevenue) elements.monthlyRevenue.textContent = `$${(stats.monthlyRevenue || 0).toFixed(2)}`;
-        if (elements.featuresUsed) {
-            elements.featuresUsed.textContent = state.featuresUsed.toLocaleString();
-        }
+        
+        // Update monthly revenue
+        state.monthlyRevenue = stats.monthlyRevenue || 0;
+        if (elements.monthlyRevenue) elements.monthlyRevenue.textContent = `$${state.monthlyRevenue.toFixed(2)}`;
+        
+        // Calculate and update yearly revenue
+        calculateYearlyRevenue();
     }
     
     function updateDashboardStatsFromLocal() {
@@ -769,12 +752,13 @@ document.addEventListener('DOMContentLoaded', function() {
             new Date(l.expiresAt) > new Date()
         ).length;
         
-        const revenue = monthly * 9.99;
+        state.monthlyRevenue = monthly * CONFIG.MONTHLY_PRICE;
+        state.yearlyRevenue = state.monthlyRevenue * 12;
         
         if (elements.totalLicenses) elements.totalLicenses.textContent = total.toLocaleString();
         if (elements.activeLicenses) elements.activeLicenses.textContent = active.toLocaleString();
-        if (elements.monthlyRevenue) elements.monthlyRevenue.textContent = `$${revenue.toFixed(2)}`;
-        if (elements.featuresUsed) elements.featuresUsed.textContent = state.featuresUsed.toLocaleString();
+        if (elements.monthlyRevenue) elements.monthlyRevenue.textContent = `$${state.monthlyRevenue.toFixed(2)}`;
+        if (elements.yearlyRevenue) elements.yearlyRevenue.textContent = `$${state.yearlyRevenue.toFixed(2)}`;
     }
     
     function renderLicenseTable() {
@@ -1183,6 +1167,8 @@ document.addEventListener('DOMContentLoaded', function() {
         state.filteredActivities = [];
         state.currentLicensePage = 1;
         state.currentActivityPage = 1;
+        state.monthlyRevenue = 0;
+        state.yearlyRevenue = 0;
         
         showNotification('Logged out successfully', 'info');
     }

@@ -794,8 +794,8 @@
             background: white;
             border-radius: 12px;
             padding: 30px;
-            width: 500px;
-            max-width: 90%;
+            width: 600px; /* Increased from 500px for better license display */
+            max-width: 95%;
             max-height: 90vh;
             overflow-y: auto;
             animation: modalSlideIn 0.3s ease;
@@ -943,7 +943,7 @@
             color: var(--accent-red);
         }
 
-        /* Enhanced License Details Modal */
+        /* Enhanced License Details Modal - UPDATED FOR SINGLE LINE LAYOUT */
         .license-details {
             padding: 5px 0;
         }
@@ -974,7 +974,14 @@
             font-size: 14px;
         }
 
-        .detail-grid {
+        /* UPDATED: Single line grid for license info, dates, and usage stats */
+        .detail-grid.single-line {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+        }
+
+        .detail-grid.double-line {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 15px;
@@ -1003,14 +1010,24 @@
             border: 1px solid var(--border-light);
         }
 
+        /* UPDATED: License key display in modal - wider and single line */
         .license-key-value {
             font-family: 'Courier New', monospace;
             font-weight: 600;
             font-size: 13px;
             word-break: break-all;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
             padding: 10px;
             background: #f8f9fa;
             border: 1px dashed var(--primary-main);
+            min-width: 0; /* Allows text-overflow to work */
+        }
+
+        .license-key-value.full-width {
+            width: 100%;
+            max-width: 100%;
         }
 
         .small-text {
@@ -1076,8 +1093,19 @@
                 max-width: 120px;
             }
             
-            .detail-grid {
+            .detail-grid.single-line,
+            .detail-grid.double-line {
                 grid-template-columns: 1fr;
+            }
+            
+            .modal-content {
+                width: 95%;
+                padding: 20px;
+            }
+            
+            .license-key-value {
+                white-space: normal;
+                word-break: break-word;
             }
         }
 
@@ -1196,7 +1224,7 @@
                 </button>
             </header>
 
-            <!-- Stats -->
+            <!-- Stats - Updated with Yearly Revenue -->
             <div class="admin-stats">
                 <div class="stat-box">
                     <div class="stat-value" id="totalLicenses">0</div>
@@ -1211,8 +1239,8 @@
                     <div class="stat-label">Monthly Revenue</div>
                 </div>
                 <div class="stat-box">
-                    <div class="stat-value" id="featuresUsed">0</div>
-                    <div class="stat-label">Features Used (30d)</div>
+                    <div class="stat-value" id="yearlyRevenue">$0</div>
+                    <div class="stat-label">Yearly Revenue</div>
                 </div>
             </div>
 

@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // ========== CONFIGURATION ==========
     const CONFIG = {
         BACKEND_API: 'https://sorvide-backend.onrender.com/api',
-        ADMIN_TOKEN: 'SorvAdm!2024@Sec#Key', // This should match your Render environment variable
+        ADMIN_TOKEN: 'SorvAdm!2024@Sec#Key',
         
         // License types
         LICENSE_TYPES: {
@@ -24,7 +24,8 @@ document.addEventListener('DOMContentLoaded', function() {
         selectedDuration: 30,
         searchQuery: '',
         currentFilter: 'all',
-        adminToken: ''
+        adminToken: '',
+        licenseToDeactivate: null
     };
     
     // ========== DOM ELEMENTS ==========
@@ -62,7 +63,16 @@ document.addEventListener('DOMContentLoaded', function() {
         refreshData: document.getElementById('refreshData'),
         viewAllCustomers: document.getElementById('viewAllCustomers'),
         exportData: document.getElementById('exportData'),
-        systemHealth: document.getElementById('systemHealth')
+        systemHealth: document.getElementById('systemHealth'),
+        
+        // Filters
+        filterButtons: document.querySelectorAll('.filter-btn'),
+        
+        // Duration options
+        durationOptions: document.querySelectorAll('.duration-option'),
+        
+        // Modal close buttons
+        closeModalButtons: document.querySelectorAll('.close-modal')
     };
     
     // ========== UTILITY FUNCTIONS ==========
@@ -78,43 +88,6 @@ document.addEventListener('DOMContentLoaded', function() {
                              type === 'warning' ? 'exclamation-triangle' : 'info-circle'}"></i>
             <span>${message}</span>
         `;
-        
-        // Add styles if not already added
-        if (!document.querySelector('#notification-styles')) {
-            const style = document.createElement('style');
-            style.id = 'notification-styles';
-            style.textContent = `
-                .notification {
-                    position: fixed;
-                    top: 20px;
-                    right: 20px;
-                    background: white;
-                    padding: 12px 16px;
-                    border-radius: 8px;
-                    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-                    display: flex;
-                    align-items: center;
-                    gap: 10px;
-                    z-index: 10000;
-                    animation: slideIn 0.3s ease;
-                    border-left: 4px solid;
-                    max-width: 300px;
-                }
-                .notification-success { border-left-color: #10b981; }
-                .notification-error { border-left-color: #ef4444; }
-                .notification-warning { border-left-color: #f59e0b; }
-                .notification-info { border-left-color: #3b82f6; }
-                @keyframes slideIn {
-                    from { transform: translateX(100%); opacity: 0; }
-                    to { transform: translateX(0); opacity: 1; }
-                }
-                @keyframes slideOut {
-                    from { transform: translateX(0); opacity: 1; }
-                    to { transform: translateX(100%); opacity: 0; }
-                }
-            `;
-            document.head.appendChild(style);
-        }
         
         document.body.appendChild(notification);
         
@@ -183,28 +156,15 @@ document.addEventListener('DOMContentLoaded', function() {
         return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
     }
     
-    // ========== API FUNCTIONS - FIXED ==========
+    // ========== API FUNCTIONS ==========
     async function checkAdminAuth(token) {
         try {
-            console.log('🔐 Checking admin auth with token:', token.substring(0, 10) + '...');
+            console.log('🔐 Checking admin auth...');
             
-            // Use a direct check without calling backend first
-            // This avoids the network error issue
-            if (token === CONFIG.ADMIN_TOKEN) {
-                console.log('✅ Admin token is valid');
-                return { success: true, message: 'Authentication successful' };
-            } else {
-                console.log('❌ Invalid admin token');
-                return { success: false, error: 'Invalid admin password' };
-            }
-            
-            // Optional: Uncomment this if you want to verify with backend
-            /*
             const response = await fetch(`${CONFIG.BACKEND_API}/admin/check-auth`, {
                 method: 'POST',
                 headers: { 
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ token })
             });
@@ -212,23 +172,29 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('Auth response status:', response.status);
             
             if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                if (response.status === 404) {
+                    console.log('Auth endpoint not found, using local check');
+                    if (token === CONFIG.ADMIN_TOKEN) {
+                        return { success: true, message: 'Authentication successful (local)' };
+                    }
+                    return { success: false, error: 'Invalid admin password' };
+                }
+                
+                throw new Error(`HTTP ${response.status}`);
             }
             
             const data = await response.json();
             console.log('Auth response data:', data);
             return data;
-            */
             
         } catch (error) {
             console.error('Auth check error:', error);
-            // Fallback to local check if network fails
             if (token === CONFIG.ADMIN_TOKEN) {
-                return { success: true, message: 'Authentication successful (local check)' };
+                return { success: true, message: 'Authentication successful (local fallback)' };
             }
             return { 
                 success: false, 
-                error: 'Network error. Using local authentication.' 
+                error: 'Authentication failed. Please try again.' 
             };
         }
     }
@@ -244,9 +210,8 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log(`🌐 Fetching: ${CONFIG.BACKEND_API}${url}`);
         
         try {
-            // Add timeout to prevent hanging
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+            const timeoutId = setTimeout(() => controller.abort(), 10000);
             
             const response = await fetch(`${CONFIG.BACKEND_API}${url}`, {
                 ...options,
@@ -299,33 +264,25 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             showNotification('Loading dashboard data...', 'info');
             
-            // For demo purposes, use sample data if backend fails
-            try {
-                // Load stats
-                const statsResponse = await fetchWithAuth('/admin/stats');
-                if (statsResponse.success) {
-                    updateDashboardStats(statsResponse.stats);
-                }
-                
-                // Load licenses
-                await loadLicenses();
-                
-                // Load recent activity
-                await loadRecentActivity();
-                
-                showNotification('Dashboard data loaded successfully', 'success');
-                
-            } catch (apiError) {
-                console.warn('API failed, using sample data:', apiError);
-                loadSampleData();
-                showNotification('Using sample data (backend unavailable)', 'warning');
+            // Load stats
+            const statsResponse = await fetchWithAuth('/admin/stats');
+            if (statsResponse.success) {
+                updateDashboardStats(statsResponse.stats);
             }
+            
+            // Load licenses
+            await loadLicenses();
+            
+            // Load recent activity
+            await loadRecentActivity();
+            
+            showNotification('Dashboard data loaded successfully', 'success');
             
         } catch (error) {
             console.error('Dashboard data load error:', error);
             if (!error.message.includes('Unauthorized')) {
                 loadSampleData();
-                showNotification('Loaded sample data for testing', 'info');
+                showNotification('Using sample data (backend unavailable)', 'warning');
             }
         }
     }
@@ -346,40 +303,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 lastValidated: new Date().toISOString(),
                 validationCount: 15,
                 days: 30
-            },
-            {
-                licenseKey: 'MONTH-SORV-XYZ9-8765-4321-ABC0',
-                customerEmail: 'pro@test.com',
-                customerName: 'Pro Tester',
-                plan: 'monthly',
-                isActive: true,
-                createdAt: new Date(Date.now() - 86400000 * 5).toISOString(),
-                expiresAt: new Date(Date.now() + 86400000 * 25).toISOString(),
-                deviceId: 'DEV-987654321',
-                deviceName: 'Chrome Extension',
-                lastValidated: new Date().toISOString(),
-                validationCount: 8,
-                days: 30
-            },
-            {
-                licenseKey: 'MONTH-SORV-EXP1-RED2-3456-7890',
-                customerEmail: 'expired@test.com',
-                customerName: 'Expired User',
-                plan: 'monthly',
-                isActive: true,
-                createdAt: new Date(Date.now() - 86400000 * 40).toISOString(),
-                expiresAt: new Date(Date.now() - 86400000 * 10).toISOString(),
-                deviceId: 'DEV-EXPIRED123',
-                deviceName: 'Chrome Extension',
-                lastValidated: new Date(Date.now() - 86400000 * 15).toISOString(),
-                validationCount: 3,
-                days: 30
             }
         ];
         
         state.filteredLicenses = [...state.licenses];
         
-        // Update stats with sample data
         updateDashboardStatsFromLocal();
         renderLicenseTable();
         renderRecentActivity([
@@ -388,18 +316,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 details: 'Manual license created for 30 days',
                 timestamp: new Date().toISOString(),
                 customerEmail: 'test@example.com'
-            },
-            {
-                type: 'validation',
-                details: 'License validated by user',
-                timestamp: new Date(Date.now() - 3600000).toISOString(),
-                customerEmail: 'pro@test.com'
-            },
-            {
-                type: 'license_deactivated',
-                details: 'License deactivated by admin',
-                timestamp: new Date(Date.now() - 86400000).toISOString(),
-                customerEmail: 'old@test.com'
             }
         ]);
     }
@@ -422,11 +338,8 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         } catch (error) {
             console.error('License load error:', error);
-            if (!error.message.includes('Unauthorized')) {
-                // Don't show error for sample data fallback
-                if (!state.licenses.length) {
-                    loadSampleData();
-                }
+            if (!error.message.includes('Unauthorized') && !state.licenses.length) {
+                loadSampleData();
             }
         }
     }
@@ -440,8 +353,188 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         } catch (error) {
             console.error('Activity load error:', error);
-            // Use empty activity state
             renderRecentActivity([]);
+        }
+    }
+    
+    async function createLicense(email, name, days) {
+        try {
+            showNotification('Creating license...', 'info');
+            
+            const response = await fetchWithAuth('/admin/create-license', {
+                method: 'POST',
+                body: JSON.stringify({ 
+                    email: email,
+                    name: name,
+                    days: days
+                })
+            });
+            
+            if (response.success) {
+                showNotification('License created successfully!', 'success');
+                
+                // Show the generated key
+                if (elements.generatedKey) {
+                    elements.generatedKey.textContent = response.license.key;
+                }
+                if (elements.generatedKeySection) {
+                    elements.generatedKeySection.style.display = 'block';
+                }
+                
+                // Clear form
+                if (elements.customerEmail) elements.customerEmail.value = '';
+                if (elements.customerName) elements.customerName.value = '';
+                
+                // Reload licenses
+                await loadLicenses();
+                await loadRecentActivity();
+                
+                return response.license;
+            } else {
+                throw new Error(response.error || 'Failed to create license');
+            }
+        } catch (error) {
+            console.error('Create license error:', error);
+            showNotification(`Failed to create license: ${error.message}`, 'error');
+            throw error;
+        }
+    }
+    
+    async function deactivateLicense(licenseKey) {
+        try {
+            showNotification('Deactivating license...', 'info');
+            
+            const response = await fetchWithAuth('/admin/deactivate-license', {
+                method: 'POST',
+                body: JSON.stringify({ licenseKey })
+            });
+            
+            if (response.success) {
+                showNotification('License deactivated successfully', 'success');
+                
+                // Reload data
+                await loadLicenses();
+                await loadRecentActivity();
+                
+                return true;
+            } else {
+                throw new Error(response.error || 'Failed to deactivate license');
+            }
+        } catch (error) {
+            console.error('Deactivate license error:', error);
+            showNotification(`Failed to deactivate license: ${error.message}`, 'error');
+            throw error;
+        }
+    }
+    
+    async function showLicenseDetails(licenseKey) {
+        try {
+            const response = await fetchWithAuth(`/admin/license/${licenseKey}`);
+            
+            if (response.success) {
+                const license = response.license;
+                const modalContent = `
+                    <div class="license-details">
+                        <div class="detail-row">
+                            <strong>License Key:</strong>
+                            <code style="display: block; background: #f8f9fa; padding: 8px; border-radius: 4px; margin-top: 5px; font-family: monospace;">${license.key}</code>
+                        </div>
+                        
+                        <div class="detail-row">
+                            <strong>Customer:</strong>
+                            <div>${license.customerName || 'N/A'} (${license.customerEmail})</div>
+                        </div>
+                        
+                        <div class="detail-row">
+                            <strong>Plan:</strong>
+                            <span>${license.plan} (${license.days || 30} days)</span>
+                        </div>
+                        
+                        <div class="detail-row">
+                            <strong>Status:</strong>
+                            ${getStatusBadge(license.isActive ? (license.daysLeft > 0 ? 'Active' : 'Expired') : 'Inactive')}
+                            <span style="margin-left: 10px;">${license.daysLeft > 0 ? `${license.daysLeft} days left` : 'Expired'}</span>
+                        </div>
+                        
+                        <div class="detail-row">
+                            <strong>Created:</strong>
+                            <span>${formatDate(license.createdAt)}</span>
+                        </div>
+                        
+                        <div class="detail-row">
+                            <strong>Expires:</strong>
+                            <span>${formatDate(license.expiresAt)}</span>
+                        </div>
+                        
+                        <div class="detail-row">
+                            <strong>Device:</strong>
+                            <span>${license.deviceId ? `${license.deviceName || 'Unknown'} (${license.deviceId.substring(0, 8)}...)` : 'Not activated'}</span>
+                        </div>
+                        
+                        <div class="detail-row">
+                            <strong>Last Validated:</strong>
+                            <span>${license.lastValidated ? formatDate(license.lastValidated) : 'Never'}</span>
+                        </div>
+                        
+                        <div class="detail-row">
+                            <strong>Validations:</strong>
+                            <span>${license.validationCount || 0}</span>
+                        </div>
+                        
+                        ${license.stripeCustomerId ? `
+                        <div class="detail-row">
+                            <strong>Stripe Customer ID:</strong>
+                            <code style="font-size: 12px;">${license.stripeCustomerId}</code>
+                        </div>
+                        ` : ''}
+                        
+                        ${license.stripeSubscriptionId ? `
+                        <div class="detail-row">
+                            <strong>Stripe Subscription ID:</strong>
+                            <code style="font-size: 12px;">${license.stripeSubscriptionId}</code>
+                        </div>
+                        ` : ''}
+                        
+                        <div class="detail-row">
+                            <strong>License Type:</strong>
+                            <span>${license.isManual ? 'Manual Creation' : 'Stripe Purchase'}</span>
+                        </div>
+                    </div>
+                    
+                    <style>
+                        .license-details {
+                            display: grid;
+                            gap: 15px;
+                            padding: 10px 0;
+                        }
+                        .detail-row {
+                            padding-bottom: 10px;
+                            border-bottom: 1px solid #e2e8f0;
+                        }
+                        .detail-row:last-child {
+                            border-bottom: none;
+                        }
+                        .detail-row strong {
+                            display: block;
+                            margin-bottom: 5px;
+                            color: #4a5568;
+                        }
+                    </style>
+                `;
+                
+                if (elements.licenseDetailsModal) {
+                    const modalBody = elements.licenseDetailsModal.querySelector('.modal-body');
+                    if (modalBody) {
+                        modalBody.innerHTML = modalContent;
+                    }
+                    elements.licenseDetailsModal.classList.add('active');
+                }
+            } else {
+                throw new Error(response.error || 'Failed to load license details');
+            }
+        } catch (error) {
+            console.error('License details error:', error);
+            showNotification(`Failed to load license details: ${error.message}`, 'error');
         }
     }
     
@@ -475,7 +568,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (elements.totalLicenses) elements.totalLicenses.textContent = total;
         if (elements.activeLicenses) elements.activeLicenses.textContent = active;
         if (elements.monthlyRevenue) elements.monthlyRevenue.textContent = `$${revenue.toFixed(2)}`;
-        if (elements.recentActivityCount) elements.recentActivityCount.textContent = '3';
+        if (elements.recentActivityCount) elements.recentActivityCount.textContent = '1';
     }
     
     function renderLicenseTable() {
@@ -505,8 +598,8 @@ document.addEventListener('DOMContentLoaded', function() {
             html += `
                 <tr>
                     <td>
-                        <div class="license-key-display" title="Click to copy: ${license.licenseKey}" 
-                             onclick="copyToClipboard('${license.licenseKey}')">
+                        <div class="license-key-display" title="${license.licenseKey}" 
+                             onclick="window.copyToClipboard('${license.licenseKey}')">
                             ${truncateText(license.licenseKey, 20)}
                         </div>
                     </td>
@@ -574,22 +667,25 @@ document.addEventListener('DOMContentLoaded', function() {
         
         let html = '';
         activities.slice(0, 10).forEach(activity => {
-            const iconClass = activity.type || 'validation';
             const icon = activity.type === 'license_created' ? 'fa-key' :
-                        activity.type === 'license_deactivated' ? 'fa-power-off' : 'fa-check-circle';
+                        activity.type === 'license_deactivated' ? 'fa-power-off' :
+                        activity.type === 'subscription_cancelled' ? 'fa-ban' :
+                        activity.type === 'license_reactivated' ? 'fa-redo' : 'fa-check-circle';
             
             const title = activity.type === 'license_created' ? 'License Created' :
-                         activity.type === 'license_deactivated' ? 'License Deactivated' : 'Validation';
+                         activity.type === 'license_deactivated' ? 'License Deactivated' :
+                         activity.type === 'subscription_cancelled' ? 'Subscription Cancelled' :
+                         activity.type === 'license_reactivated' ? 'License Reactivated' : 'Validation';
             
             html += `
                 <div class="activity-item">
-                    <div class="activity-icon ${iconClass}">
+                    <div class="activity-icon ${activity.type}">
                         <i class="fas ${icon}"></i>
                     </div>
                     <div class="activity-content">
                         <div class="activity-title">${title}</div>
                         <div class="activity-details">${truncateText(activity.details || 'No details', 40)}</div>
-                        <div class="activity-time">${formatDate(activity.timestamp || activity.createdAt)}</div>
+                        <div class="activity-time">${formatDate(activity.timestamp)}</div>
                     </div>
                 </div>
             `;
@@ -598,7 +694,7 @@ document.addEventListener('DOMContentLoaded', function() {
         container.innerHTML = html;
     }
     
-    // ========== AUTHENTICATION FUNCTIONS - FIXED ==========
+    // ========== AUTHENTICATION FUNCTIONS ==========
     async function login() {
         const password = elements.adminPassword ? elements.adminPassword.value.trim() : '';
         
@@ -622,9 +718,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 state.isAuthenticated = true;
                 state.adminToken = password;
                 
-                // Store token in session storage
+                // Store with timestamp
                 try {
                     sessionStorage.setItem('sorvide_admin_token', password);
+                    sessionStorage.setItem('sorvide_admin_login_time', Date.now().toString());
                 } catch (e) {
                     console.warn('Could not store in sessionStorage:', e);
                 }
@@ -666,7 +763,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 elements.adminPassword.focus();
             }
             
-            // Clear error after 5 seconds
             setTimeout(() => {
                 if (elements.loginError) {
                     elements.loginError.style.display = 'none';
@@ -683,6 +779,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         try {
             sessionStorage.removeItem('sorvide_admin_token');
+            sessionStorage.removeItem('sorvide_admin_login_time');
         } catch (e) {
             // Ignore
         }
@@ -710,6 +807,18 @@ document.addEventListener('DOMContentLoaded', function() {
     function checkExistingSession() {
         try {
             const savedToken = sessionStorage.getItem('sorvide_admin_token');
+            const loginTimestamp = sessionStorage.getItem('sorvide_admin_login_time');
+            const now = Date.now();
+            
+            if (savedToken && loginTimestamp) {
+                const hoursSinceLogin = (now - parseInt(loginTimestamp)) / (1000 * 60 * 60);
+                
+                // Auto-logout after 8 hours even if tab is open
+                if (hoursSinceLogin > 8) {
+                    logout();
+                    return;
+                }
+            }
             
             if (savedToken && savedToken === CONFIG.ADMIN_TOKEN) {
                 state.adminToken = savedToken;
@@ -722,12 +831,29 @@ document.addEventListener('DOMContentLoaded', function() {
                     elements.adminDashboard.style.display = 'block';
                 }
                 
-                // Load dashboard data
                 loadDashboardData();
             }
         } catch (e) {
             console.warn('Session check failed:', e);
         }
+    }
+    
+    // ========== MODAL FUNCTIONS ==========
+    function showDeactivateModal(licenseKey) {
+        state.licenseToDeactivate = licenseKey;
+        if (elements.deactivateModal) {
+            elements.deactivateModal.classList.add('active');
+        }
+    }
+    
+    function closeModals() {
+        if (elements.licenseDetailsModal) {
+            elements.licenseDetailsModal.classList.remove('active');
+        }
+        if (elements.deactivateModal) {
+            elements.deactivateModal.classList.remove('active');
+        }
+        state.licenseToDeactivate = null;
     }
     
     // ========== EVENT HANDLERS ==========
@@ -750,15 +876,230 @@ document.addEventListener('DOMContentLoaded', function() {
             elements.logoutBtn.addEventListener('click', logout);
         }
         
-        // Other event listeners...
-        // [Keep all other event listeners from the previous code]
+        // Search
+        if (elements.searchLicenses) {
+            elements.searchLicenses.addEventListener('input', function(e) {
+                state.searchQuery = e.target.value;
+                filterLicenses();
+            });
+        }
         
-        // Initialize tooltip for copy function
+        // Filters
+        if (elements.filterButtons) {
+            elements.filterButtons.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    // Remove active class from all buttons
+                    elements.filterButtons.forEach(b => b.classList.remove('active'));
+                    // Add active class to clicked button
+                    this.classList.add('active');
+                    state.currentFilter = this.dataset.filter;
+                    filterLicenses();
+                });
+            });
+        }
+        
+        // Duration options
+        if (elements.durationOptions) {
+            elements.durationOptions.forEach(option => {
+                option.addEventListener('click', function() {
+                    // Remove selected class from all options
+                    elements.durationOptions.forEach(o => o.classList.remove('selected'));
+                    // Add selected class to clicked option
+                    this.classList.add('selected');
+                    state.selectedDuration = parseInt(this.dataset.days);
+                });
+            });
+        }
+        
+        // Generate license key
+        if (elements.generateKeyBtn) {
+            elements.generateKeyBtn.addEventListener('click', async function() {
+                const email = elements.customerEmail ? elements.customerEmail.value.trim() : '';
+                const name = elements.customerName ? elements.customerName.value.trim() : '';
+                
+                if (!email) {
+                    showNotification('Please enter customer email', 'error');
+                    return;
+                }
+                
+                // Validate email
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(email)) {
+                    showNotification('Please enter a valid email address', 'error');
+                    return;
+                }
+                
+                try {
+                    await createLicense(email, name, state.selectedDuration);
+                } catch (error) {
+                    // Error already shown in createLicense function
+                }
+            });
+        }
+        
+        // Copy key button
+        if (elements.copyKeyBtn) {
+            elements.copyKeyBtn.addEventListener('click', function() {
+                const keyText = elements.generatedKey ? elements.generatedKey.textContent : '';
+                if (keyText) {
+                    navigator.clipboard.writeText(keyText)
+                        .then(() => showNotification('License key copied to clipboard!', 'success'))
+                        .catch(() => showNotification('Failed to copy key', 'error'));
+                }
+            });
+        }
+        
+        // Send email button
+        if (elements.sendEmailBtn) {
+            elements.sendEmailBtn.addEventListener('click', function() {
+                showNotification('Email sending would be implemented here', 'info');
+                // In a real implementation, you would call an API endpoint to send the email
+            });
+        }
+        
+        // Save to DB button
+        if (elements.saveToDBBtn) {
+            elements.saveToDBBtn.addEventListener('click', function() {
+                showNotification('License already saved to database', 'info');
+            });
+        }
+        
+        // Deactivate license confirmation
+        if (elements.confirmDeactivate) {
+            elements.confirmDeactivate.addEventListener('click', async function() {
+                if (state.licenseToDeactivate) {
+                    try {
+                        await deactivateLicense(state.licenseToDeactivate);
+                        closeModals();
+                    } catch (error) {
+                        // Error already shown in deactivateLicense function
+                    }
+                }
+            });
+        }
+        
+        // Cancel deactivation
+        if (elements.cancelDeactivate) {
+            elements.cancelDeactivate.addEventListener('click', function() {
+                closeModals();
+            });
+        }
+        
+        // Close modal buttons
+        if (elements.closeModalButtons) {
+            elements.closeModalButtons.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    closeModals();
+                });
+            });
+        }
+        
+        // Close modals on outside click
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('modal')) {
+                closeModals();
+            }
+        });
+        
+        // Quick actions
+        if (elements.refreshData) {
+            elements.refreshData.addEventListener('click', function() {
+                loadDashboardData();
+            });
+        }
+        
+        if (elements.viewAllCustomers) {
+            elements.viewAllCustomers.addEventListener('click', function() {
+                state.currentFilter = 'all';
+                state.searchQuery = '';
+                if (elements.searchLicenses) {
+                    elements.searchLicenses.value = '';
+                }
+                // Update filter buttons
+                elements.filterButtons.forEach(btn => {
+                    btn.classList.remove('active');
+                    if (btn.dataset.filter === 'all') {
+                        btn.classList.add('active');
+                    }
+                });
+                filterLicenses();
+                showNotification('Showing all customers', 'info');
+            });
+        }
+        
+        if (elements.exportData) {
+            elements.exportData.addEventListener('click', function() {
+                showNotification('Export feature would be implemented here', 'info');
+            });
+        }
+        
+        if (elements.systemHealth) {
+            elements.systemHealth.addEventListener('click', async function() {
+                try {
+                    const response = await fetch(`${CONFIG.BACKEND_API}/health`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        showNotification(`System is ${data.status}. MongoDB: ${data.mongodb}`, 'success');
+                    } else {
+                        showNotification('Backend is not responding', 'error');
+                    }
+                } catch (error) {
+                    showNotification('Cannot connect to backend', 'error');
+                }
+            });
+        }
+        
+        // Global copy function
         window.copyToClipboard = function(text) {
             navigator.clipboard.writeText(text)
                 .then(() => showNotification('Copied to clipboard!', 'success'))
                 .catch(() => showNotification('Failed to copy', 'error'));
         };
+    }
+    
+    function filterLicenses() {
+        if (state.licenses.length === 0) return;
+        
+        let filtered = [...state.licenses];
+        
+        // Apply filter
+        if (state.currentFilter !== 'all') {
+            filtered = filtered.filter(license => {
+                const status = getLicenseStatus(license);
+                const plan = license.plan || 'monthly';
+                const days = license.days || 30;
+                
+                switch(state.currentFilter) {
+                    case 'active':
+                        return status === 'Active';
+                    case 'inactive':
+                        return status === 'Inactive';
+                    case 'expired':
+                        return status === 'Expired';
+                    case 'monthly':
+                        return plan === 'monthly' || days === 30;
+                    case 'trial':
+                        return days === 3 || days === 7;
+                    case 'yearly':
+                        return days === 365;
+                    default:
+                        return true;
+                }
+            });
+        }
+        
+        // Apply search
+        if (state.searchQuery) {
+            const query = state.searchQuery.toLowerCase();
+            filtered = filtered.filter(license => 
+                (license.licenseKey && license.licenseKey.toLowerCase().includes(query)) ||
+                (license.customerEmail && license.customerEmail.toLowerCase().includes(query)) ||
+                (license.customerName && license.customerName.toLowerCase().includes(query))
+            );
+        }
+        
+        state.filteredLicenses = filtered;
+        renderLicenseTable();
     }
     
     // ========== INITIALIZATION ==========

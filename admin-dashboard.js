@@ -29,51 +29,42 @@ document.addEventListener('DOMContentLoaded', function() {
     };
     
     // ========== DOM ELEMENTS ==========
-    const elements = {
-        // Login screen
-        loginScreen: document.getElementById('loginScreen'),
-        adminPassword: document.getElementById('adminPassword'),
-        loginBtn: document.getElementById('loginBtn'),
-        loginError: document.getElementById('loginError'),
+    const elements = {};
+    
+    // Initialize DOM elements - FIXED: Wait for dashboard to be shown
+    function initDOMElements() {
+        elements.loginScreen = document.getElementById('loginScreen');
+        elements.adminPassword = document.getElementById('adminPassword');
+        elements.loginBtn = document.getElementById('loginBtn');
+        elements.loginError = document.getElementById('loginError');
+        elements.adminDashboard = document.getElementById('adminDashboard');
+        elements.logoutBtn = document.getElementById('logoutBtn');
+        elements.totalLicenses = document.getElementById('totalLicenses');
+        elements.activeLicenses = document.getElementById('activeLicenses');
+        elements.monthlyRevenue = document.getElementById('monthlyRevenue');
+        elements.recentActivityCount = document.getElementById('recentActivityCount');
+        elements.searchLicenses = document.getElementById('searchLicenses');
+        elements.licenseTableBody = document.getElementById('licenseTableBody');
+        elements.customerEmail = document.getElementById('customerEmail');
+        elements.customerName = document.getElementById('customerName');
+        elements.generateKeyBtn = document.getElementById('generateKeyBtn');
+        elements.generatedKeySection = document.getElementById('generatedKeySection');
+        elements.generatedKey = document.getElementById('generatedKey');
+        elements.copyKeyBtn = document.getElementById('copyKeyBtn');
+        elements.sendEmailBtn = document.getElementById('sendEmailBtn');
+        elements.saveToDBBtn = document.getElementById('saveToDBBtn');
+        elements.licenseDetailsModal = document.getElementById('licenseDetailsModal');
+        elements.deactivateModal = document.getElementById('deactivateModal');
+        elements.confirmDeactivate = document.getElementById('confirmDeactivate');
+        elements.cancelDeactivate = document.getElementById('cancelDeactivate');
+        elements.recentActivity = document.getElementById('recentActivity');
+        elements.refreshData = document.getElementById('refreshData');
+        elements.viewAllCustomers = document.getElementById('viewAllCustomers');
+        elements.exportData = document.getElementById('exportData');
+        elements.systemHealth = document.getElementById('systemHealth');
         
-        // Dashboard
-        adminDashboard: document.getElementById('adminDashboard'),
-        logoutBtn: document.getElementById('logoutBtn'),
-        totalLicenses: document.getElementById('totalLicenses'),
-        activeLicenses: document.getElementById('activeLicenses'),
-        monthlyRevenue: document.getElementById('monthlyRevenue'),
-        recentActivityCount: document.getElementById('recentActivityCount'),
-        searchLicenses: document.getElementById('searchLicenses'),
-        licenseTableBody: document.getElementById('licenseTableBody'),
-        customerEmail: document.getElementById('customerEmail'),
-        customerName: document.getElementById('customerName'),
-        generateKeyBtn: document.getElementById('generateKeyBtn'),
-        generatedKeySection: document.getElementById('generatedKeySection'),
-        generatedKey: document.getElementById('generatedKey'),
-        copyKeyBtn: document.getElementById('copyKeyBtn'),
-        sendEmailBtn: document.getElementById('sendEmailBtn'),
-        saveToDBBtn: document.getElementById('saveToDBBtn'),
-        licenseDetailsModal: document.getElementById('licenseDetailsModal'),
-        deactivateModal: document.getElementById('deactivateModal'),
-        confirmDeactivate: document.getElementById('confirmDeactivate'),
-        cancelDeactivate: document.getElementById('cancelDeactivate'),
-        recentActivity: document.getElementById('recentActivity'),
-        
-        // Quick actions
-        refreshData: document.getElementById('refreshData'),
-        viewAllCustomers: document.getElementById('viewAllCustomers'),
-        exportData: document.getElementById('exportData'),
-        systemHealth: document.getElementById('systemHealth'),
-        
-        // Filters
-        filterButtons: document.querySelectorAll('.filter-btn'),
-        
-        // Duration options
-        durationOptions: document.querySelectorAll('.duration-option'),
-        
-        // Modal close buttons
-        closeModalButtons: document.querySelectorAll('.close-modal')
-    };
+        console.log('DOM elements initialized');
+    }
     
     // ========== UTILITY FUNCTIONS ==========
     function showNotification(message, type = 'success', duration = 3000) {
@@ -288,7 +279,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function loadSampleData() {
-        // Sample data for testing when backend is unavailable
+        // Sample data for testing
         state.licenses = [
             {
                 licenseKey: 'MONTH-SORV-ABC1-2345-6789-DEF0',
@@ -465,61 +456,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             <strong>Expires:</strong>
                             <span>${formatDate(license.expiresAt)}</span>
                         </div>
-                        
-                        <div class="detail-row">
-                            <strong>Device:</strong>
-                            <span>${license.deviceId ? `${license.deviceName || 'Unknown'} (${license.deviceId.substring(0, 8)}...)` : 'Not activated'}</span>
-                        </div>
-                        
-                        <div class="detail-row">
-                            <strong>Last Validated:</strong>
-                            <span>${license.lastValidated ? formatDate(license.lastValidated) : 'Never'}</span>
-                        </div>
-                        
-                        <div class="detail-row">
-                            <strong>Validations:</strong>
-                            <span>${license.validationCount || 0}</span>
-                        </div>
-                        
-                        ${license.stripeCustomerId ? `
-                        <div class="detail-row">
-                            <strong>Stripe Customer ID:</strong>
-                            <code style="font-size: 12px;">${license.stripeCustomerId}</code>
-                        </div>
-                        ` : ''}
-                        
-                        ${license.stripeSubscriptionId ? `
-                        <div class="detail-row">
-                            <strong>Stripe Subscription ID:</strong>
-                            <code style="font-size: 12px;">${license.stripeSubscriptionId}</code>
-                        </div>
-                        ` : ''}
-                        
-                        <div class="detail-row">
-                            <strong>License Type:</strong>
-                            <span>${license.isManual ? 'Manual Creation' : 'Stripe Purchase'}</span>
-                        </div>
                     </div>
-                    
-                    <style>
-                        .license-details {
-                            display: grid;
-                            gap: 15px;
-                            padding: 10px 0;
-                        }
-                        .detail-row {
-                            padding-bottom: 10px;
-                            border-bottom: 1px solid #e2e8f0;
-                        }
-                        .detail-row:last-child {
-                            border-bottom: none;
-                        }
-                        .detail-row strong {
-                            display: block;
-                            margin-bottom: 5px;
-                            color: #4a5568;
-                        }
-                    </style>
                 `;
                 
                 if (elements.licenseDetailsModal) {
@@ -726,7 +663,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     console.warn('Could not store in sessionStorage:', e);
                 }
                 
-                // Show dashboard
+                // Show dashboard - FIXED: Simple display change
                 if (elements.loginScreen) {
                     elements.loginScreen.style.display = 'none';
                 }
@@ -885,11 +822,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         // Filters
-        if (elements.filterButtons) {
-            elements.filterButtons.forEach(btn => {
+        const filterButtons = document.querySelectorAll('.filter-btn');
+        if (filterButtons) {
+            filterButtons.forEach(btn => {
                 btn.addEventListener('click', function() {
                     // Remove active class from all buttons
-                    elements.filterButtons.forEach(b => b.classList.remove('active'));
+                    filterButtons.forEach(b => b.classList.remove('active'));
                     // Add active class to clicked button
                     this.classList.add('active');
                     state.currentFilter = this.dataset.filter;
@@ -899,11 +837,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         // Duration options
-        if (elements.durationOptions) {
-            elements.durationOptions.forEach(option => {
+        const durationOptions = document.querySelectorAll('.duration-option');
+        if (durationOptions) {
+            durationOptions.forEach(option => {
                 option.addEventListener('click', function() {
                     // Remove selected class from all options
-                    elements.durationOptions.forEach(o => o.classList.remove('selected'));
+                    durationOptions.forEach(o => o.classList.remove('selected'));
                     // Add selected class to clicked option
                     this.classList.add('selected');
                     state.selectedDuration = parseInt(this.dataset.days);
@@ -953,7 +892,6 @@ document.addEventListener('DOMContentLoaded', function() {
         if (elements.sendEmailBtn) {
             elements.sendEmailBtn.addEventListener('click', function() {
                 showNotification('Email sending would be implemented here', 'info');
-                // In a real implementation, you would call an API endpoint to send the email
             });
         }
         
@@ -986,8 +924,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         // Close modal buttons
-        if (elements.closeModalButtons) {
-            elements.closeModalButtons.forEach(btn => {
+        const closeModalButtons = document.querySelectorAll('.close-modal');
+        if (closeModalButtons) {
+            closeModalButtons.forEach(btn => {
                 btn.addEventListener('click', function() {
                     closeModals();
                 });
@@ -1016,7 +955,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     elements.searchLicenses.value = '';
                 }
                 // Update filter buttons
-                elements.filterButtons.forEach(btn => {
+                const filterButtons = document.querySelectorAll('.filter-btn');
+                filterButtons.forEach(btn => {
                     btn.classList.remove('active');
                     if (btn.dataset.filter === 'all') {
                         btn.classList.add('active');
@@ -1106,12 +1046,8 @@ document.addEventListener('DOMContentLoaded', function() {
     function init() {
         console.log('Initializing admin dashboard...');
         
-        // First, check if we have DOM elements
-        if (!elements.loginScreen && !elements.adminDashboard) {
-            console.error('DOM elements not found. Make sure the HTML is loaded correctly.');
-            showNotification('Error: Page not loaded correctly. Please refresh.', 'error');
-            return;
-        }
+        // Initialize DOM elements
+        initDOMElements();
         
         // Setup event listeners
         setupEventListeners();

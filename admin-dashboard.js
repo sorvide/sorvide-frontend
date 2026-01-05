@@ -6,18 +6,8 @@ document.addEventListener('DOMContentLoaded', function() {
         BACKEND_API: 'https://sorvide-backend.onrender.com/api',
         ADMIN_TOKEN: 'SorvAdm!2024@Sec#Key',
         
-        // License types
-        LICENSE_TYPES: {
-            '3': '3-day Trial',
-            '7': '7-day Trial',
-            '30': 'Monthly',
-            '365': 'Yearly'
-        },
-        
         // Features tracking
-        FEATURES_PERIOD: 30, // Track features used in last 30 days
-        FEATURES_INCLUDE_FREE: true, // Include free plan features
-        FEATURES_INCLUDE_PRO: true // Include pro plan features
+        FEATURES_PERIOD: 30 // Track features used in last 30 days
     };
     
     // ========== STATE ==========
@@ -34,6 +24,7 @@ document.addEventListener('DOMContentLoaded', function() {
         adminToken: '',
         licenseToDeactivate: null,
         licenseToDelete: null,
+        isStripeLicenseToDelete: false,
         currentLicensePage: 1,
         currentActivityPage: 1,
         licensesPerPage: 10,
@@ -72,9 +63,7 @@ document.addEventListener('DOMContentLoaded', function() {
         elements.deactivateModal = document.getElementById('deactivateModal');
         elements.deleteModal = document.getElementById('deleteModal');
         elements.confirmDeactivate = document.getElementById('confirmDeactivate');
-        elements.confirmDelete = document.getElementById('confirmDelete');
         elements.cancelDeactivate = document.getElementById('cancelDeactivate');
-        elements.cancelDelete = document.getElementById('cancelDelete');
         elements.recentActivity = document.getElementById('recentActivity');
         elements.refreshData = document.getElementById('refreshData');
         elements.systemHealth = document.getElementById('systemHealth');
@@ -307,8 +296,29 @@ document.addEventListener('DOMContentLoaded', function() {
     
     async function loadFeaturesUsed() {
         try {
-            // This would call a new backend endpoint to get features usage
-            // For now, we'll calculate from validation counts as a proxy
+            // Call backend endpoint for actual features used count
+            const response = await fetchWithAuth('/admin/features-used');
+            
+            if (response.success) {
+                state.featuresUsed = response.count || 0;
+                if (elements.featuresUsed) {
+                    elements.featuresUsed.textContent = state.featuresUsed.toLocaleString();
+                }
+            } else {
+                // Fallback: calculate from validation counts
+                await calculateFeaturesFromValidations();
+            }
+            
+        } catch (error) {
+            console.error('Error loading features used:', error);
+            // Fallback to calculation
+            await calculateFeaturesFromValidations();
+        }
+    }
+    
+    async function calculateFeaturesFromValidations() {
+        try {
+            // Calculate from validation counts in last 30 days
             const thirtyDaysAgo = new Date();
             thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - CONFIG.FEATURES_PERIOD);
             
@@ -321,18 +331,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 return total + (license.validationCount || 0);
             }, 0);
             
-            // Add some random variation for demo
-            state.featuresUsed += Math.floor(Math.random() * 20);
-            
             if (elements.featuresUsed) {
                 elements.featuresUsed.textContent = state.featuresUsed.toLocaleString();
             }
             
         } catch (error) {
-            console.error('Error loading features used:', error);
-            state.featuresUsed = Math.floor(Math.random() * 100) + 50;
+            console.error('Error calculating features:', error);
+            state.featuresUsed = 0;
             if (elements.featuresUsed) {
-                elements.featuresUsed.textContent = state.featuresUsed.toLocaleString();
+                elements.featuresUsed.textContent = '0';
             }
         }
     }
@@ -352,7 +359,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 deviceName: 'Chrome Extension',
                 lastValidated: new Date().toISOString(),
                 validationCount: 15,
-                days: 30
+                days: 30,
+                isManual: true,
+                stripeSubscriptionId: null
             }
         ];
         
@@ -363,18 +372,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 details: 'Manual license created for 30 days',
                 timestamp: new Date().toISOString(),
                 customerEmail: 'test@example.com'
-            },
-            {
-                type: 'validation',
-                details: 'License validated by user',
-                timestamp: new Date(Date.now() - 3600000).toISOString(),
-                customerEmail: 'test@example.com'
-            },
-            {
-                type: 'license_deactivated',
-                details: 'License deactivated by admin',
-                timestamp: new Date(Date.now() - 86400000).toISOString(),
-                customerEmail: 'old@test.com'
             }
         ];
         
@@ -458,17 +455,24 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             showNotification('Clearing all activity...', 'info');
             
-            // This would call a backend endpoint to clear activity
-            // For now, we'll clear locally
-            state.activities = [];
-            state.filteredActivities = [];
-            state.currentActivityPage = 1;
-            state.totalActivityPages = 1;
+            const response = await fetchWithAuth('/admin/activity', {
+                method: 'DELETE'
+            });
             
-            renderRecentActivity();
-            renderActivityPagination();
-            
-            showNotification('All activity cleared successfully', 'success');
+            if (response.success) {
+                state.activities = [];
+                state.filteredActivities = [];
+                state.currentActivityPage = 1;
+                state.totalActivityPages = 1;
+                
+                renderRecentActivity();
+                renderActivityPagination();
+                
+                showNotification('All activity cleared successfully', 'success');
+                
+            } else {
+                throw new Error(response.error || 'Failed to clear activity');
+            }
             
         } catch (error) {
             console.error('Clear activity error:', error);
@@ -520,6 +524,32 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
+    async function sendLicenseEmail(licenseKey, customerEmail, customerName) {
+        try {
+            showNotification('Sending license email...', 'info');
+            
+            const response = await fetchWithAuth('/admin/send-license-email', {
+                method: 'POST',
+                body: JSON.stringify({ 
+                    licenseKey: licenseKey,
+                    customerEmail: customerEmail,
+                    customerName: customerName
+                })
+            });
+            
+            if (response.success) {
+                showNotification('License email sent successfully!', 'success');
+                return true;
+            } else {
+                throw new Error(response.error || 'Failed to send email');
+            }
+        } catch (error) {
+            console.error('Send email error:', error);
+            showNotification(`Failed to send email: ${error.message}`, 'error');
+            throw error;
+        }
+    }
+    
     async function deactivateLicense(licenseKey) {
         try {
             showNotification('Deactivating license...', 'info');
@@ -552,7 +582,6 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             showNotification('Deleting license...', 'info');
             
-            // Note: You'll need to add a DELETE endpoint on your backend
             const response = await fetchWithAuth(`/admin/license/${licenseKey}`, {
                 method: 'DELETE'
             });
@@ -775,8 +804,16 @@ document.addEventListener('DOMContentLoaded', function() {
         currentLicenses.forEach(license => {
             const status = getLicenseStatus(license);
             const daysLeft = formatDaysLeft(license);
-            const planName = CONFIG.LICENSE_TYPES[license.days] || license.plan || 'Monthly';
-            const isDeletable = license.isManual || !license.stripeSubscriptionId;
+            const isStripeLicense = license.stripeSubscriptionId && !license.isManual;
+            
+            // Determine delete button color
+            let deleteBtnClass = 'btn-stripe-delete';
+            let deleteBtnTitle = 'Delete Stripe License';
+            
+            if (license.isManual) {
+                deleteBtnClass = 'btn-manual-delete';
+                deleteBtnTitle = 'Delete Manual License';
+            }
             
             html += `
                 <tr>
@@ -792,7 +829,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="customer-email">${truncateText(license.customerEmail, 22)}</div>
                         </div>
                     </td>
-                    <td><span class="plan-badge">${planName}</span></td>
+                    <td><span class="plan-badge">${isStripeLicense ? 'Stripe' : 'Manual'}</span></td>
                     <td>${getStatusBadge(status)}</td>
                     <td>
                         <div class="expiry-cell single-line">${formatDate(license.expiresAt)}</div>
@@ -809,10 +846,9 @@ document.addEventListener('DOMContentLoaded', function() {
                                     ${!license.isActive ? 'disabled style="opacity: 0.5;"' : ''}>
                                 <i class="fas fa-power-off"></i>
                             </button>
-                            ${isDeletable ? `
-                            <button class="btn btn-warning btn-small delete-license" data-key="${license.licenseKey}">
+                            <button class="btn ${deleteBtnClass} btn-small delete-license" data-key="${license.licenseKey}" title="${deleteBtnTitle}">
                                 <i class="fas fa-trash"></i>
-                            </button>` : ''}
+                            </button>
                         </div>
                     </td>
                 </tr>
@@ -841,7 +877,9 @@ document.addEventListener('DOMContentLoaded', function() {
         document.querySelectorAll('.delete-license').forEach(btn => {
             btn.addEventListener('click', function() {
                 const licenseKey = this.dataset.key;
-                showDeleteModal(licenseKey);
+                const license = state.licenses.find(l => l.licenseKey === licenseKey);
+                const isStripeLicense = license?.stripeSubscriptionId && !license?.isManual;
+                showDeleteModal(licenseKey, isStripeLicense);
             });
         });
     }
@@ -960,13 +998,15 @@ document.addEventListener('DOMContentLoaded', function() {
                         activity.type === 'license_deactivated' ? 'fa-power-off' :
                         activity.type === 'subscription_cancelled' ? 'fa-ban' :
                         activity.type === 'license_reactivated' ? 'fa-redo' :
-                        activity.type === 'license_deleted' ? 'fa-trash' : 'fa-check-circle';
+                        activity.type === 'license_deleted' ? 'fa-trash' :
+                        activity.type === 'email_sent' ? 'fa-envelope' : 'fa-check-circle';
             
             const title = activity.type === 'license_created' ? 'License Created' :
                          activity.type === 'license_deactivated' ? 'License Deactivated' :
                          activity.type === 'subscription_cancelled' ? 'Subscription Cancelled' :
                          activity.type === 'license_reactivated' ? 'License Reactivated' :
-                         activity.type === 'license_deleted' ? 'License Deleted' : 'Validation';
+                         activity.type === 'license_deleted' ? 'License Deleted' :
+                         activity.type === 'email_sent' ? 'Email Sent' : 'Validation';
             
             html += `
                 <div class="activity-item">
@@ -1189,8 +1229,48 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    function showDeleteModal(licenseKey) {
+    function showDeleteModal(licenseKey, isStripeLicense = false) {
         state.licenseToDelete = licenseKey;
+        state.isStripeLicenseToDelete = isStripeLicense;
+        
+        // Update modal message based on license type
+        const modalBody = elements.deleteModal?.querySelector('.modal-body');
+        if (modalBody) {
+            const warningMessage = isStripeLicense 
+                ? '<p><strong>⚠️ Stripe License:</strong> This license is linked to a Stripe subscription. Deleting it will also cancel the subscription.</p>'
+                : '<p><strong>⚠️ Manual License:</strong> This license was created manually in the admin panel.</p>';
+            
+            modalBody.innerHTML = `
+                ${warningMessage}
+                <p><strong>Warning:</strong> This will permanently delete the license from the database. This action cannot be undone.</p>
+                <p>Are you sure you want to delete this license?</p>
+                <div class="action-buttons" style="margin-top: 20px;">
+                    <button class="btn ${isStripeLicense ? 'btn-stripe-delete' : 'btn-manual-delete'}" id="confirmDelete">
+                        ${isStripeLicense ? '<i class="fas fa-credit-card"></i> Delete Stripe License' : '<i class="fas fa-trash"></i> Delete Manual License'}
+                    </button>
+                    <button class="btn" id="cancelDelete">Cancel</button>
+                </div>
+            `;
+            
+            // Add event listeners to the new buttons
+            setTimeout(() => {
+                document.getElementById('confirmDelete')?.addEventListener('click', async function() {
+                    if (state.licenseToDelete) {
+                        try {
+                            await deleteLicense(state.licenseToDelete);
+                            closeModals();
+                        } catch (error) {
+                            // Error already shown in deleteLicense function
+                        }
+                    }
+                });
+                
+                document.getElementById('cancelDelete')?.addEventListener('click', function() {
+                    closeModals();
+                });
+            }, 100);
+        }
+        
         if (elements.deleteModal) {
             elements.deleteModal.classList.add('active');
         }
@@ -1208,6 +1288,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         state.licenseToDeactivate = null;
         state.licenseToDelete = null;
+        state.isStripeLicenseToDelete = false;
     }
     
     // ========== EVENT HANDLERS ==========
@@ -1291,13 +1372,23 @@ document.addEventListener('DOMContentLoaded', function() {
                     return;
                 }
                 
-                if (![3, 7, 30, 365].includes(days)) {
-                    showNotification('Please select a valid duration (3, 7, 30, or 365 days)', 'error');
-                    return;
-                }
-                
                 try {
-                    await createLicense(email, name, days);
+                    const license = await createLicense(email, name, days);
+                    
+                    // Set up email sending for the generated license
+                    if (license) {
+                        const sendEmailBtn = document.getElementById('sendEmailBtn');
+                        if (sendEmailBtn) {
+                            // Update the email button to send for this specific license
+                            sendEmailBtn.onclick = async () => {
+                                try {
+                                    await sendLicenseEmail(license.key, email, name || email.split('@')[0]);
+                                } catch (error) {
+                                    // Error already shown
+                                }
+                            };
+                        }
+                    }
                 } catch (error) {
                     // Error already shown in createLicense function
                 }
@@ -1316,14 +1407,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
         
-        // Send email button
-        if (elements.sendEmailBtn) {
-            elements.sendEmailBtn.addEventListener('click', function() {
-                showNotification('Email sending would be implemented here', 'info');
-            });
-        }
-        
-        // Save to DB button
+        // Save to DB button (already handled in createLicense)
         if (elements.saveToDBBtn) {
             elements.saveToDBBtn.addEventListener('click', function() {
                 showNotification('License already saved to database', 'info');
@@ -1344,17 +1428,10 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
         
-        // Delete license confirmation
-        if (elements.confirmDelete) {
-            elements.confirmDelete.addEventListener('click', async function() {
-                if (state.licenseToDelete) {
-                    try {
-                        await deleteLicense(state.licenseToDelete);
-                        closeModals();
-                    } catch (error) {
-                        // Error already shown in deleteLicense function
-                    }
-                }
+        // Cancel deactivate button
+        if (elements.cancelDeactivate) {
+            elements.cancelDeactivate.addEventListener('click', function() {
+                closeModals();
             });
         }
         
@@ -1364,19 +1441,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (confirm('Are you sure you want to clear ALL activity history? This cannot be undone.')) {
                     await clearAllActivity();
                 }
-            });
-        }
-        
-        // Cancel buttons
-        if (elements.cancelDeactivate) {
-            elements.cancelDeactivate.addEventListener('click', function() {
-                closeModals();
-            });
-        }
-        
-        if (elements.cancelDelete) {
-            elements.cancelDelete.addEventListener('click', function() {
-                closeModals();
             });
         }
         
@@ -1447,9 +1511,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         return status === 'Inactive';
                     case 'monthly':
                         return plan === 'monthly' || days === 30;
-                    case 'special':
-                        // Special category for 3, 7, and 365 days
-                        return days === 3 || days === 7 || days === 365;
                     default:
                         return true;
                 }

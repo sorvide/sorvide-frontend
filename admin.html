@@ -970,6 +970,121 @@
             padding: 5px 0;
         }
 
+        /* Fix for table width with extra Renewals column */
+.license-management table {
+    font-size: 0.85em;
+}
+
+.license-management th,
+.license-management td {
+    padding: 8px 6px !important;
+}
+
+/* Compact badges for table */
+.plan-badge.compact {
+    font-size: 0.75em;
+    padding: 2px 6px;
+}
+
+/* Compact action buttons */
+.action-buttons.compact {
+    gap: 4px;
+}
+
+.action-buttons.compact .btn-small {
+    padding: 4px 6px;
+    font-size: 0.8em;
+}
+
+/* Compact expiry date */
+.expiry-cell.compact {
+    font-size: 0.85em;
+}
+
+/* Fix for Recent Activity height */
+.recent-activity-container {
+    height: auto;
+    min-height: 300px;
+}
+
+/* When license table is tall, adjust recent activity */
+@media (min-width: 1200px) {
+    .dashboard-content {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 20px;
+    }
+    
+    .license-management {
+        grid-column: 1;
+    }
+    
+    .dashboard-sidebar {
+        grid-column: 2;
+    }
+}
+
+/* Fix for license details modal - uniform heights */
+.detail-grid.uniform-height .detail-item {
+    min-height: 50px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.detail-value-uniform {
+    display: flex;
+    align-items: center;
+    min-height: 32px;
+    padding: 4px 0;
+}
+
+/* Status badges in modal */
+.detail-value-uniform .status-badge {
+    margin: 0;
+}
+
+/* Ensure all detail sections have consistent spacing */
+.detail-section {
+    margin-bottom: 20px;
+}
+
+.detail-section:last-child {
+    margin-bottom: 0;
+}
+
+/* Adjust modal content padding for better fit */
+.modal-body {
+    padding: 20px;
+}
+
+.detail-grid.single-line {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+}
+
+.detail-grid.double-line {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .detail-grid.single-line,
+    .detail-grid.double-line {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    
+    .license-management table {
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+}
+
         .detail-section {
             margin-bottom: 25px;
             padding-bottom: 20px;

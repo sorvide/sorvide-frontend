@@ -1,4 +1,4 @@
-// admin-dashboard.js - COMPLETE with all fixes: lifetime revenue, activation status, renewals
+// admin-dashboard.js - COMPLETE with all fixes and layout corrections
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🔧 Loading Sorvide Admin Dashboard...');
@@ -354,6 +354,9 @@ document.addEventListener('DOMContentLoaded', function() {
             // Calculate revenue from loaded licenses
             calculateLifetimeRevenue();
             
+            // FIXED: Adjust recent activity height to match license management
+            setTimeout(adjustActivityHeight, 100);
+            
             showNotification('Dashboard data loaded successfully', 'success');
             
         } catch (error) {
@@ -362,6 +365,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 loadSampleData();
                 showNotification('Using sample data (backend unavailable)', 'warning');
             }
+        }
+    }
+    
+    // FIXED: Function to adjust recent activity height
+    function adjustActivityHeight() {
+        const licenseManagement = document.querySelector('.license-management');
+        const recentActivityContainer = document.querySelector('.recent-activity-container');
+        
+        if (licenseManagement && recentActivityContainer) {
+            const licenseHeight = licenseManagement.offsetHeight;
+            recentActivityContainer.style.height = `${licenseHeight}px`;
         }
     }
     
@@ -422,6 +436,9 @@ document.addEventListener('DOMContentLoaded', function() {
         renderLicensePagination();
         renderRecentActivity();
         renderActivityPagination();
+        
+        // FIXED: Adjust activity height after loading sample data
+        setTimeout(adjustActivityHeight, 100);
     }
     
     async function loadLicenses() {
@@ -467,6 +484,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 renderLicenseTable();
                 renderLicensePagination();
+                
+                // FIXED: Adjust activity height after loading licenses
+                setTimeout(adjustActivityHeight, 100);
             } else {
                 throw new Error(data.error || 'Failed to load licenses');
             }
@@ -497,6 +517,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 renderRecentActivity();
                 renderActivityPagination();
+                
+                // FIXED: Adjust activity height after loading activities
+                setTimeout(adjustActivityHeight, 100);
             }
         } catch (error) {
             console.error('Activity load error:', error);
@@ -505,6 +528,9 @@ document.addEventListener('DOMContentLoaded', function() {
             state.filteredActivities = [];
             renderRecentActivity();
             renderActivityPagination();
+            
+            // FIXED: Adjust activity height even with empty activities
+            setTimeout(adjustActivityHeight, 100);
         }
     }
     
@@ -524,6 +550,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 renderRecentActivity();
                 renderActivityPagination();
+                
+                // FIXED: Adjust activity height after clearing
+                setTimeout(adjustActivityHeight, 100);
                 
                 showNotification('All activity cleared successfully', 'success');
                 
@@ -697,7 +726,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (response.success) {
                 const license = response.license;
                 
-                // UPDATED: Enhanced layout with renewal information
+                // FIXED: Enhanced layout with consistent box heights
                 const modalContent = `
                     <div class="license-details">
                         <!-- License Information - Single Line -->
@@ -736,22 +765,22 @@ document.addEventListener('DOMContentLoaded', function() {
                             </div>
                         </div>
                         
-                        <!-- Subscription Details - Single Line -->
+                        <!-- Subscription Details - Single Line (FIXED: Consistent height) -->
                         <div class="detail-section">
                             <h4><i class="fas fa-sync-alt"></i> Subscription Details</h4>
-                            <div class="detail-grid single-line">
+                            <div class="detail-grid single-line uniform-height">
                                 <div class="detail-item">
                                     <label>Renewals</label>
-                                    <div class="detail-value">${getRenewalBadge(license.renewalCount)}</div>
+                                    <div class="detail-value detail-value-uniform">${getRenewalBadge(license.renewalCount)}</div>
                                 </div>
                                 ${license.lastRenewalAt ? `
                                 <div class="detail-item">
                                     <label>Last Renewal</label>
-                                    <div class="detail-value">${formatDate(license.lastRenewalAt)}</div>
+                                    <div class="detail-value detail-value-uniform">${formatDate(license.lastRenewalAt)}</div>
                                 </div>` : ''}
                                 <div class="detail-item">
                                     <label>Activated</label>
-                                    <div class="detail-value">${getActivationBadge(license.deviceId && license.deviceId.trim() !== '' ? 'Yes' : 'No')}</div>
+                                    <div class="detail-value detail-value-uniform">${getActivationBadge(license.deviceId && license.deviceId.trim() !== '' ? 'Yes' : 'No')}</div>
                                 </div>
                             </div>
                         </div>
@@ -888,32 +917,32 @@ document.addEventListener('DOMContentLoaded', function() {
                     <td>
                         <div class="license-key-display single-line" title="${license.licenseKey}" 
                              onclick="window.copyToClipboard('${license.licenseKey}')">
-                            ${truncateText(license.licenseKey, 24)}
+                            ${truncateText(license.licenseKey, 22)}
                         </div>
                     </td>
                     <td>
                         <div class="customer-cell">
-                            <div class="customer-name">${truncateText(license.customerName || 'No name', 18)}</div>
-                            <div class="customer-email">${truncateText(license.customerEmail, 22)}</div>
+                            <div class="customer-name">${truncateText(license.customerName || 'No name', 16)}</div>
+                            <div class="customer-email">${truncateText(license.customerEmail, 20)}</div>
                         </div>
                     </td>
-                    <td><span class="plan-badge">${isStripeLicense ? 'Stripe' : 'Manual'}</span></td>
+                    <td><span class="plan-badge compact">${isStripeLicense ? 'Stripe' : 'Manual'}</span></td>
                     <td>${getStatusBadge(status)}</td>
                     <td>${getActivationBadge(activationStatus)}</td>
                     <td>${getRenewalBadge(renewalCount)}</td>
                     <td>
-                        <div class="expiry-cell single-line">${formatDate(license.expiresAt)}</div>
+                        <div class="expiry-cell single-line compact">${formatDate(license.expiresAt)}</div>
                         ${daysLeft ? `<div class="days-left ${daysLeft.includes('Expired') ? 'expired' : 'active'}">
                             ${daysLeft}
                         </div>` : ''}
                     </td>
                     <td>
-                        <div class="action-buttons">
-                            <button class="btn btn-primary btn-small view-details" data-key="${license.licenseKey}">
+                        <div class="action-buttons compact">
+                            <button class="btn btn-primary btn-small view-details" data-key="${license.licenseKey}" title="View Details">
                                 <i class="fas fa-eye"></i>
                             </button>
                             <button class="btn btn-danger btn-small deactivate-license" data-key="${license.licenseKey}" 
-                                    ${!license.isActive ? 'disabled style="opacity: 0.5;"' : ''}>
+                                    ${!license.isActive ? 'disabled style="opacity: 0.5;"' : ''} title="Deactivate">
                                 <i class="fas fa-power-off"></i>
                             </button>
                             <button class="btn ${deleteBtnClass} btn-small delete-license" data-key="${license.licenseKey}" title="${deleteBtnTitle}">
@@ -1416,6 +1445,9 @@ document.addEventListener('DOMContentLoaded', function() {
         
         renderLicenseTable();
         renderLicensePagination();
+        
+        // FIXED: Adjust activity height after filtering
+        setTimeout(adjustActivityHeight, 100);
     }
     
     // ========== EVENT HANDLERS ==========
@@ -1617,6 +1649,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 .then(() => showNotification('Copied to clipboard!', 'success'))
                 .catch(() => showNotification('Failed to copy', 'error'));
         };
+        
+        // FIXED: Window resize listener to adjust activity height
+        window.addEventListener('resize', function() {
+            setTimeout(adjustActivityHeight, 100);
+        });
     }
     
     // ========== INITIALIZATION ==========

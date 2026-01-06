@@ -1,3 +1,5 @@
+// admin-dashboard.js - Updated with activation status, improved layout, and lifetime revenue
+
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🔧 Loading Sorvide Admin Dashboard...');
     
@@ -8,7 +10,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Revenue calculation
         MONTHLY_PRICE: 9.99,
-        YEARLY_PRICE: 99.99  // Assuming yearly is 8.33/month * 12
+        YEARLY_PRICE: 99.99
     };
     
     // ========== STATE ==========
@@ -33,7 +35,8 @@ document.addEventListener('DOMContentLoaded', function() {
         totalLicensePages: 1,
         totalActivityPages: 1,
         monthlyRevenue: 0,
-        yearlyRevenue: 0
+        lifetimeRevenue: 0, // CHANGED: yearlyRevenue -> lifetimeRevenue
+        totalRevenue: 0
     };
     
     // ========== DOM ELEMENTS ==========
@@ -50,7 +53,7 @@ document.addEventListener('DOMContentLoaded', function() {
         elements.totalLicenses = document.getElementById('totalLicenses');
         elements.activeLicenses = document.getElementById('activeLicenses');
         elements.monthlyRevenue = document.getElementById('monthlyRevenue');
-        elements.yearlyRevenue = document.getElementById('yearlyRevenue');
+        elements.lifetimeRevenue = document.getElementById('yearlyRevenue'); // Using existing element
         elements.searchLicenses = document.getElementById('searchLicenses');
         elements.licenseTableBody = document.getElementById('licenseTableBody');
         elements.customerEmail = document.getElementById('customerEmail');
@@ -101,7 +104,6 @@ document.addEventListener('DOMContentLoaded', function() {
     function formatDate(dateString) {
         try {
             const date = new Date(dateString);
-            // Format as "Feb 3, 2026, 6:55 PM" (shorter format)
             return date.toLocaleDateString('en-US', {
                 month: 'short',
                 day: 'numeric',
@@ -146,11 +148,18 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
+    function getActivationStatus(license) {
+        if (!license.isActive) return 'Inactive';
+        return license.deviceId && license.deviceId.trim() !== '' ? 'Activated' : 'Not Activated';
+    }
+    
     function getStatusBadge(status) {
         const badges = {
             'Active': 'status-active',
             'Inactive': 'status-inactive',
             'Expired': 'status-expired',
+            'Activated': 'status-activated',
+            'Not Activated': 'status-not-activated',
             'Unknown': 'status-inactive'
         };
         
@@ -161,6 +170,67 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!text) return '';
         if (text.length <= maxLength) return text;
         return text.substring(0, maxLength - 3) + '...';
+    }
+    
+    // ========== REVENUE CALCULATIONS ==========
+    function calculateLifetimeRevenue() {
+        let totalRevenue = 0;
+        const now = new Date();
+        
+        state.licenses.forEach(license => {
+            if (license.plan === 'monthly' || license.days === 30) {
+                const createdAt = new Date(license.createdAt);
+                const expiresAt = new Date(license.expiresAt);
+                
+                // Calculate total months active (including partial months)
+                let monthsActive = 0;
+                
+                if (license.isActive && expiresAt > now) {
+                    // Still active, calculate from creation to now
+                    monthsActive = (now - createdAt) / (1000 * 60 * 60 * 24 * 30.44);
+                } else if (license.isActive && expiresAt <= now) {
+                    // Expired but still marked as active
+                    monthsActive = (expiresAt - createdAt) / (1000 * 60 * 60 * 24 * 30.44);
+                } else if (!license.isActive) {
+                    // Inactive, calculate from creation to expiration
+                    monthsActive = (expiresAt - createdAt) / (1000 * 60 * 60 * 24 * 30.44);
+                }
+                
+                // Add revenue for each month (or partial month)
+                if (monthsActive > 0) {
+                    totalRevenue += monthsActive * CONFIG.MONTHLY_PRICE;
+                }
+            }
+        });
+        
+        state.lifetimeRevenue = parseFloat(totalRevenue.toFixed(2));
+        
+        // Also calculate total monthly revenue for current active licenses
+        const activeMonthlyLicenses = state.licenses.filter(l => 
+            l.isActive && 
+            (l.plan === 'monthly' || l.days === 30) &&
+            new Date(l.expiresAt) > new Date()
+        ).length;
+        
+        state.monthlyRevenue = activeMonthlyLicenses * CONFIG.MONTHLY_PRICE;
+        
+        // Update the display
+        updateRevenueDisplay();
+    }
+    
+    function updateRevenueDisplay() {
+        if (elements.monthlyRevenue) {
+            elements.monthlyRevenue.textContent = `$${state.monthlyRevenue.toFixed(2)}`;
+        }
+        
+        if (elements.lifetimeRevenue) {
+            elements.lifetimeRevenue.textContent = `$${state.lifetimeRevenue.toFixed(2)}`;
+            // Update the label if needed
+            const label = elements.lifetimeRevenue.closest('.stat-box')?.querySelector('.stat-label');
+            if (label) {
+                label.textContent = 'Lifetime Revenue';
+            }
+        }
     }
     
     // ========== API FUNCTIONS ==========
@@ -270,20 +340,14 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             showNotification('Loading dashboard data...', 'info');
             
-            // Load stats
-            const statsResponse = await fetchWithAuth('/admin/stats');
-            if (statsResponse.success) {
-                updateDashboardStats(statsResponse.stats);
-                
-                // Calculate yearly revenue
-                calculateYearlyRevenue();
-            }
-            
             // Load licenses
             await loadLicenses();
             
             // Load recent activity
             await loadRecentActivity();
+            
+            // Calculate revenue from loaded licenses
+            calculateLifetimeRevenue();
             
             showNotification('Dashboard data loaded successfully', 'success');
             
@@ -293,15 +357,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 loadSampleData();
                 showNotification('Using sample data (backend unavailable)', 'warning');
             }
-        }
-    }
-    
-    function calculateYearlyRevenue() {
-        // Calculate yearly revenue (monthly revenue * 12)
-        state.yearlyRevenue = state.monthlyRevenue * 12;
-        
-        if (elements.yearlyRevenue) {
-            elements.yearlyRevenue.textContent = `$${state.yearlyRevenue.toFixed(2)}`;
         }
     }
     
@@ -339,17 +394,23 @@ document.addEventListener('DOMContentLoaded', function() {
         state.filteredLicenses = [...state.licenses];
         state.filteredActivities = [...state.activities];
         
-        // Calculate sample revenue
-        const monthlyLicenses = state.licenses.filter(l => 
-            l.isActive && 
-            (l.plan === 'monthly' || l.days === 30) &&
-            new Date(l.expiresAt) > new Date()
-        ).length;
+        // Calculate revenue from sample data
+        calculateLifetimeRevenue();
         
-        state.monthlyRevenue = monthlyLicenses * CONFIG.MONTHLY_PRICE;
-        state.yearlyRevenue = state.monthlyRevenue * 12;
+        // Update dashboard stats
+        if (elements.totalLicenses) elements.totalLicenses.textContent = state.licenses.length.toLocaleString();
         
-        updateDashboardStatsFromLocal();
+        const activeCount = state.licenses.filter(l => {
+            if (!l.isActive) return false;
+            try {
+                return new Date(l.expiresAt) > new Date();
+            } catch (e) {
+                return false;
+            }
+        }).length;
+        
+        if (elements.activeLicenses) elements.activeLicenses.textContent = activeCount.toLocaleString();
+        
         renderLicenseTable();
         renderLicensePagination();
         renderRecentActivity();
@@ -368,6 +429,25 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.success) {
                 state.licenses = data.licenses || [];
                 state.filteredLicenses = [...state.licenses];
+                
+                // Update total licenses count
+                if (elements.totalLicenses) {
+                    elements.totalLicenses.textContent = state.licenses.length.toLocaleString();
+                }
+                
+                // Update active licenses count
+                const activeCount = state.licenses.filter(l => {
+                    if (!l.isActive) return false;
+                    try {
+                        return new Date(l.expiresAt) > new Date();
+                    } catch (e) {
+                        return false;
+                    }
+                }).length;
+                
+                if (elements.activeLicenses) {
+                    elements.activeLicenses.textContent = activeCount.toLocaleString();
+                }
                 
                 // Calculate total pages
                 state.totalLicensePages = Math.ceil(state.filteredLicenses.length / state.licensesPerPage);
@@ -482,6 +562,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 await loadLicenses();
                 await loadRecentActivity();
                 
+                // Recalculate revenue
+                calculateLifetimeRevenue();
+                
                 return response.license;
             } else {
                 throw new Error(response.error || 'Failed to create license');
@@ -535,6 +618,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 await loadLicenses();
                 await loadRecentActivity();
                 
+                // Recalculate revenue
+                calculateLifetimeRevenue();
+                
                 return true;
             } else {
                 throw new Error(response.error || 'Failed to deactivate license');
@@ -561,6 +647,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 await loadLicenses();
                 await loadRecentActivity();
                 
+                // Recalculate revenue
+                calculateLifetimeRevenue();
+                
                 return true;
             } else {
                 throw new Error(response.error || 'Failed to delete license');
@@ -581,6 +670,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 renderLicenseTable();
                 renderLicensePagination();
+                
+                // Recalculate revenue
+                calculateLifetimeRevenue();
+                
                 showNotification('License removed from local view (backend delete endpoint needed)', 'warning');
                 return true;
             }
@@ -597,7 +690,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (response.success) {
                 const license = response.license;
                 
-                // UPDATED: Single-line layout with better license key display
+                // UPDATED: Enhanced layout with activation status and better single-line display
                 const modalContent = `
                     <div class="license-details">
                         <!-- License Information - Single Line -->
@@ -615,13 +708,17 @@ document.addEventListener('DOMContentLoaded', function() {
                                     <div class="detail-value">${getStatusBadge(license.isActive ? (license.daysLeft > 0 ? 'Active' : 'Expired') : 'Inactive')}</div>
                                 </div>
                                 <div class="detail-item">
+                                    <label>Activation</label>
+                                    <div class="detail-value">${getStatusBadge(license.deviceId && license.deviceId.trim() !== '' ? 'Activated' : 'Not Activated')}</div>
+                                </div>
+                                <div class="detail-item">
                                     <label>Plan Type</label>
                                     <div class="detail-value">${license.plan} (${license.days || 30} days)</div>
                                 </div>
                             </div>
                         </div>
                         
-                        <!-- Customer Details - Double Line (stays as is) -->
+                        <!-- Customer Details - Double Line -->
                         <div class="detail-section">
                             <h4><i class="fas fa-user"></i> Customer Details</h4>
                             <div class="detail-grid double-line">
@@ -679,22 +776,22 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>` : ''}
                         
                         ${license.stripeCustomerId || license.stripeSubscriptionId ? `
-                        <!-- Payment Information - Double Line (can stay as is since it has more data) -->
+                        <!-- Payment Information - Single Line -->
                         <div class="detail-section">
                             <h4><i class="fas fa-credit-card"></i> Payment Information</h4>
-                            <div class="detail-grid double-line">
+                            <div class="detail-grid single-line">
                                 ${license.stripeCustomerId ? `
                                 <div class="detail-item">
-                                    <label>Stripe Customer ID</label>
+                                    <label>Customer ID</label>
                                     <div class="detail-value small-text" title="${license.stripeCustomerId}">
-                                        ${truncateText(license.stripeCustomerId, 30)}
+                                        ${truncateText(license.stripeCustomerId, 25)}
                                     </div>
                                 </div>` : ''}
                                 ${license.stripeSubscriptionId ? `
                                 <div class="detail-item">
                                     <label>Subscription ID</label>
                                     <div class="detail-value small-text" title="${license.stripeSubscriptionId}">
-                                        ${truncateText(license.stripeSubscriptionId, 30)}
+                                        ${truncateText(license.stripeSubscriptionId, 25)}
                                     </div>
                                 </div>` : ''}
                                 <div class="detail-item">
@@ -723,44 +820,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // ========== UI UPDATE FUNCTIONS ==========
-    function updateDashboardStats(stats) {
-        if (elements.totalLicenses) elements.totalLicenses.textContent = (stats.totalLicenses || 0).toLocaleString();
-        if (elements.activeLicenses) elements.activeLicenses.textContent = (stats.activeLicenses || 0).toLocaleString();
-        
-        // Update monthly revenue
-        state.monthlyRevenue = stats.monthlyRevenue || 0;
-        if (elements.monthlyRevenue) elements.monthlyRevenue.textContent = `$${state.monthlyRevenue.toFixed(2)}`;
-        
-        // Calculate and update yearly revenue
-        calculateYearlyRevenue();
-    }
-    
-    function updateDashboardStatsFromLocal() {
-        const total = state.licenses.length;
-        const active = state.licenses.filter(l => {
-            if (!l.isActive) return false;
-            try {
-                return new Date(l.expiresAt) > new Date();
-            } catch (e) {
-                return false;
-            }
-        }).length;
-        
-        const monthly = state.licenses.filter(l => 
-            l.isActive && 
-            (l.plan === 'monthly' || l.days === 30) &&
-            new Date(l.expiresAt) > new Date()
-        ).length;
-        
-        state.monthlyRevenue = monthly * CONFIG.MONTHLY_PRICE;
-        state.yearlyRevenue = state.monthlyRevenue * 12;
-        
-        if (elements.totalLicenses) elements.totalLicenses.textContent = total.toLocaleString();
-        if (elements.activeLicenses) elements.activeLicenses.textContent = active.toLocaleString();
-        if (elements.monthlyRevenue) elements.monthlyRevenue.textContent = `$${state.monthlyRevenue.toFixed(2)}`;
-        if (elements.yearlyRevenue) elements.yearlyRevenue.textContent = `$${state.yearlyRevenue.toFixed(2)}`;
-    }
-    
     function renderLicenseTable() {
         if (!elements.licenseTableBody) return;
         
@@ -769,7 +828,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (state.filteredLicenses.length === 0) {
             tableBody.innerHTML = `
                 <tr>
-                    <td colspan="7" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                    <td colspan="8" style="text-align: center; padding: 40px; color: var(--text-secondary);">
                         <i class="fas fa-inbox" style="font-size: 32px; margin-bottom: 10px; display: block; opacity: 0.5;"></i>
                         No licenses found
                         ${state.searchQuery ? ` for "${state.searchQuery}"` : ''}
@@ -787,6 +846,7 @@ document.addEventListener('DOMContentLoaded', function() {
         let html = '';
         currentLicenses.forEach(license => {
             const status = getLicenseStatus(license);
+            const activationStatus = getActivationStatus(license);
             const daysLeft = formatDaysLeft(license);
             const isStripeLicense = license.stripeSubscriptionId && !license.isManual;
             
@@ -815,6 +875,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     </td>
                     <td><span class="plan-badge">${isStripeLicense ? 'Stripe' : 'Manual'}</span></td>
                     <td>${getStatusBadge(status)}</td>
+                    <td>${getStatusBadge(activationStatus)}</td>
                     <td>
                         <div class="expiry-cell single-line">${formatDate(license.expiresAt)}</div>
                         ${daysLeft ? `<div class="days-left ${daysLeft.includes('Expired') ? 'expired' : 'active'}">
@@ -1168,7 +1229,7 @@ document.addEventListener('DOMContentLoaded', function() {
         state.currentLicensePage = 1;
         state.currentActivityPage = 1;
         state.monthlyRevenue = 0;
-        state.yearlyRevenue = 0;
+        state.lifetimeRevenue = 0;
         
         showNotification('Logged out successfully', 'info');
     }
@@ -1277,6 +1338,58 @@ document.addEventListener('DOMContentLoaded', function() {
         state.isStripeLicenseToDelete = false;
     }
     
+    // ========== FILTER FUNCTIONS ==========
+    function filterLicenses() {
+        if (state.licenses.length === 0) return;
+        
+        let filtered = [...state.licenses];
+        
+        // Apply filter
+        if (state.currentFilter !== 'all') {
+            filtered = filtered.filter(license => {
+                const status = getLicenseStatus(license);
+                const activationStatus = getActivationStatus(license);
+                const plan = license.plan || 'monthly';
+                const days = license.days || 30;
+                
+                switch(state.currentFilter) {
+                    case 'active':
+                        return status === 'Active';
+                    case 'inactive':
+                        return status === 'Inactive';
+                    case 'monthly':
+                        return plan === 'monthly' || days === 30;
+                    case 'activated':
+                        return activationStatus === 'Activated';
+                    case 'not-activated':
+                        return activationStatus === 'Not Activated';
+                    default:
+                        return true;
+                }
+            });
+        }
+        
+        // Apply search
+        if (state.searchQuery) {
+            const query = state.searchQuery.toLowerCase();
+            filtered = filtered.filter(license => 
+                (license.licenseKey && license.licenseKey.toLowerCase().includes(query)) ||
+                (license.customerEmail && license.customerEmail.toLowerCase().includes(query)) ||
+                (license.customerName && license.customerName.toLowerCase().includes(query))
+            );
+        }
+        
+        state.filteredLicenses = filtered;
+        
+        // Recalculate pages
+        state.totalLicensePages = Math.ceil(state.filteredLicenses.length / state.licensesPerPage);
+        if (state.totalLicensePages === 0) state.totalLicensePages = 1;
+        if (state.currentLicensePage > state.totalLicensePages) state.currentLicensePage = 1;
+        
+        renderLicenseTable();
+        renderLicensePagination();
+    }
+    
     // ========== EVENT HANDLERS ==========
     function setupEventListeners() {
         // Login
@@ -1306,7 +1419,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
         
-        // Filters
+        // Filters - UPDATED to include activation filters
         const filterButtons = document.querySelectorAll('.filter-btn');
         if (filterButtons) {
             filterButtons.forEach(btn => {
@@ -1476,52 +1589,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 .then(() => showNotification('Copied to clipboard!', 'success'))
                 .catch(() => showNotification('Failed to copy', 'error'));
         };
-    }
-    
-    function filterLicenses() {
-        if (state.licenses.length === 0) return;
-        
-        let filtered = [...state.licenses];
-        
-        // Apply filter
-        if (state.currentFilter !== 'all') {
-            filtered = filtered.filter(license => {
-                const status = getLicenseStatus(license);
-                const plan = license.plan || 'monthly';
-                const days = license.days || 30;
-                
-                switch(state.currentFilter) {
-                    case 'active':
-                        return status === 'Active';
-                    case 'inactive':
-                        return status === 'Inactive';
-                    case 'monthly':
-                        return plan === 'monthly' || days === 30;
-                    default:
-                        return true;
-                }
-            });
-        }
-        
-        // Apply search
-        if (state.searchQuery) {
-            const query = state.searchQuery.toLowerCase();
-            filtered = filtered.filter(license => 
-                (license.licenseKey && license.licenseKey.toLowerCase().includes(query)) ||
-                (license.customerEmail && license.customerEmail.toLowerCase().includes(query)) ||
-                (license.customerName && license.customerName.toLowerCase().includes(query))
-            );
-        }
-        
-        state.filteredLicenses = filtered;
-        
-        // Recalculate pages
-        state.totalLicensePages = Math.ceil(state.filteredLicenses.length / state.licensesPerPage);
-        if (state.totalLicensePages === 0) state.totalLicensePages = 1;
-        if (state.currentLicensePage > state.totalLicensePages) state.currentLicensePage = 1;
-        
-        renderLicenseTable();
-        renderLicensePagination();
     }
     
     // ========== INITIALIZATION ==========

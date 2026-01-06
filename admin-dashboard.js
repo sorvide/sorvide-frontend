@@ -1,4 +1,4 @@
-// admin-dashboard.js - COMPLETE with all fixes and layout corrections
+// admin-dashboard.js - COMPLETE with all fixes (removed adjustActivityHeight)
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🔧 Loading Sorvide Admin Dashboard...');
@@ -354,9 +354,6 @@ document.addEventListener('DOMContentLoaded', function() {
             // Calculate revenue from loaded licenses
             calculateLifetimeRevenue();
             
-            // FIXED: Adjust recent activity height to match license management
-            setTimeout(adjustActivityHeight, 100);
-            
             showNotification('Dashboard data loaded successfully', 'success');
             
         } catch (error) {
@@ -365,17 +362,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 loadSampleData();
                 showNotification('Using sample data (backend unavailable)', 'warning');
             }
-        }
-    }
-    
-    // FIXED: Function to adjust recent activity height
-    function adjustActivityHeight() {
-        const licenseManagement = document.querySelector('.license-management');
-        const recentActivityContainer = document.querySelector('.recent-activity-container');
-        
-        if (licenseManagement && recentActivityContainer) {
-            const licenseHeight = licenseManagement.offsetHeight;
-            recentActivityContainer.style.height = `${licenseHeight}px`;
         }
     }
     
@@ -436,9 +422,6 @@ document.addEventListener('DOMContentLoaded', function() {
         renderLicensePagination();
         renderRecentActivity();
         renderActivityPagination();
-        
-        // FIXED: Adjust activity height after loading sample data
-        setTimeout(adjustActivityHeight, 100);
     }
     
     async function loadLicenses() {
@@ -484,9 +467,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 renderLicenseTable();
                 renderLicensePagination();
-                
-                // FIXED: Adjust activity height after loading licenses
-                setTimeout(adjustActivityHeight, 100);
             } else {
                 throw new Error(data.error || 'Failed to load licenses');
             }
@@ -517,9 +497,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 renderRecentActivity();
                 renderActivityPagination();
-                
-                // FIXED: Adjust activity height after loading activities
-                setTimeout(adjustActivityHeight, 100);
             }
         } catch (error) {
             console.error('Activity load error:', error);
@@ -528,9 +505,6 @@ document.addEventListener('DOMContentLoaded', function() {
             state.filteredActivities = [];
             renderRecentActivity();
             renderActivityPagination();
-            
-            // FIXED: Adjust activity height even with empty activities
-            setTimeout(adjustActivityHeight, 100);
         }
     }
     
@@ -550,9 +524,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 renderRecentActivity();
                 renderActivityPagination();
-                
-                // FIXED: Adjust activity height after clearing
-                setTimeout(adjustActivityHeight, 100);
                 
                 showNotification('All activity cleared successfully', 'success');
                 
@@ -1445,9 +1416,6 @@ document.addEventListener('DOMContentLoaded', function() {
         
         renderLicenseTable();
         renderLicensePagination();
-        
-        // FIXED: Adjust activity height after filtering
-        setTimeout(adjustActivityHeight, 100);
     }
     
     // ========== EVENT HANDLERS ==========
@@ -1649,11 +1617,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 .then(() => showNotification('Copied to clipboard!', 'success'))
                 .catch(() => showNotification('Failed to copy', 'error'));
         };
-        
-        // FIXED: Window resize listener to adjust activity height
-        window.addEventListener('resize', function() {
-            setTimeout(adjustActivityHeight, 100);
-        });
     }
     
     // ========== INITIALIZATION ==========

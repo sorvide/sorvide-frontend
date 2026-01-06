@@ -1,4 +1,4 @@
-// admin-dashboard.js - Updated with activation status, improved layout, and lifetime revenue
+// admin-dashboard.js - Updated with proper lifetime revenue, Yes/No activation, and corrected logic
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🔧 Loading Sorvide Admin Dashboard...');
@@ -35,8 +35,7 @@ document.addEventListener('DOMContentLoaded', function() {
         totalLicensePages: 1,
         totalActivityPages: 1,
         monthlyRevenue: 0,
-        lifetimeRevenue: 0, // CHANGED: yearlyRevenue -> lifetimeRevenue
-        totalRevenue: 0
+        lifetimeRevenue: 0
     };
     
     // ========== DOM ELEMENTS ==========
@@ -149,8 +148,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function getActivationStatus(license) {
-        if (!license.isActive) return 'Inactive';
-        return license.deviceId && license.deviceId.trim() !== '' ? 'Activated' : 'Not Activated';
+        // Returns "Yes" if deviceId exists, "No" if not
+        return license.deviceId && license.deviceId.trim() !== '' ? 'Yes' : 'No';
     }
     
     function getStatusBadge(status) {
@@ -158,12 +157,16 @@ document.addEventListener('DOMContentLoaded', function() {
             'Active': 'status-active',
             'Inactive': 'status-inactive',
             'Expired': 'status-expired',
-            'Activated': 'status-activated',
-            'Not Activated': 'status-not-activated',
             'Unknown': 'status-inactive'
         };
         
         return `<span class="status-badge ${badges[status] || 'status-inactive'}">${status}</span>`;
+    }
+    
+    function getActivationBadge(isActivated) {
+        return isActivated === 'Yes' 
+            ? '<span class="status-badge status-activated">Yes</span>'
+            : '<span class="status-badge status-not-activated">No</span>';
     }
     
     function truncateText(text, maxLength = 20) {
@@ -177,35 +180,44 @@ document.addEventListener('DOMContentLoaded', function() {
         let totalRevenue = 0;
         const now = new Date();
         
+        // Calculate lifetime revenue from ALL licenses (including disabled ones)
+        // This includes:
+        // 1. All completed payments for licenses that were ever active
+        // 2. Current month's revenue for active licenses
+        // 3. Revenue only decreases when a license is DELETED
+        
         state.licenses.forEach(license => {
             if (license.plan === 'monthly' || license.days === 30) {
                 const createdAt = new Date(license.createdAt);
                 const expiresAt = new Date(license.expiresAt);
                 
-                // Calculate total months active (including partial months)
-                let monthsActive = 0;
+                // Calculate total months this license has contributed revenue
+                // Since we don't offer refunds, once a license is created, it contributes to revenue
+                // even if it's later disabled
                 
-                if (license.isActive && expiresAt > now) {
-                    // Still active, calculate from creation to now
-                    monthsActive = (now - createdAt) / (1000 * 60 * 60 * 24 * 30.44);
-                } else if (license.isActive && expiresAt <= now) {
-                    // Expired but still marked as active
-                    monthsActive = (expiresAt - createdAt) / (1000 * 60 * 60 * 24 * 30.44);
-                } else if (!license.isActive) {
-                    // Inactive, calculate from creation to expiration
-                    monthsActive = (expiresAt - createdAt) / (1000 * 60 * 60 * 24 * 30.44);
-                }
-                
-                // Add revenue for each month (or partial month)
-                if (monthsActive > 0) {
-                    totalRevenue += monthsActive * CONFIG.MONTHLY_PRICE;
+                if (license.stripeSubscriptionId) {
+                    // Stripe subscription license
+                    if (license.isActive && expiresAt > now) {
+                        // Still active - include current month + all past months
+                        const monthsActive = Math.ceil((now - createdAt) / (1000 * 60 * 60 * 24 * 30.44));
+                        totalRevenue += monthsActive * CONFIG.MONTHLY_PRICE;
+                    } else {
+                        // Inactive or expired - include all completed months
+                        const completedMonths = Math.floor((expiresAt - createdAt) / (1000 * 60 * 60 * 24 * 30.44));
+                        totalRevenue += completedMonths * CONFIG.MONTHLY_PRICE;
+                    }
+                } else {
+                    // Manual license - count the full duration
+                    const days = license.days || 30;
+                    const months = days / 30.44; // Convert days to months
+                    totalRevenue += months * CONFIG.MONTHLY_PRICE;
                 }
             }
         });
         
         state.lifetimeRevenue = parseFloat(totalRevenue.toFixed(2));
         
-        // Also calculate total monthly revenue for current active licenses
+        // Calculate current monthly revenue (active subscriptions only)
         const activeMonthlyLicenses = state.licenses.filter(l => 
             l.isActive && 
             (l.plan === 'monthly' || l.days === 30) &&
@@ -369,15 +381,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 customerName: 'Test User',
                 plan: 'monthly',
                 isActive: true,
-                createdAt: new Date(Date.now() - 86400000 * 10).toISOString(),
-                expiresAt: new Date(Date.now() + 86400000 * 20).toISOString(),
+                createdAt: new Date(Date.now() - 86400000 * 45).toISOString(), // 45 days ago
+                expiresAt: new Date(Date.now() + 86400000 * 15).toISOString(), // 15 days left
                 deviceId: 'DEV-123456789',
                 deviceName: 'Chrome Extension',
                 lastValidated: new Date().toISOString(),
                 validationCount: 15,
                 days: 30,
-                isManual: true,
-                stripeSubscriptionId: null
+                isManual: false,
+                stripeSubscriptionId: 'sub_123456789'
             }
         ];
         
@@ -618,7 +630,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 await loadLicenses();
                 await loadRecentActivity();
                 
-                // Recalculate revenue
+                // Recalculate revenue (monthly revenue decreases, lifetime stays the same)
                 calculateLifetimeRevenue();
                 
                 return true;
@@ -647,7 +659,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 await loadLicenses();
                 await loadRecentActivity();
                 
-                // Recalculate revenue
+                // Recalculate revenue (lifetime revenue decreases when deleted)
                 calculateLifetimeRevenue();
                 
                 return true;
@@ -671,7 +683,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 renderLicenseTable();
                 renderLicensePagination();
                 
-                // Recalculate revenue
+                // Recalculate revenue (lifetime revenue decreases when deleted)
                 calculateLifetimeRevenue();
                 
                 showNotification('License removed from local view (backend delete endpoint needed)', 'warning');
@@ -690,7 +702,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (response.success) {
                 const license = response.license;
                 
-                // UPDATED: Enhanced layout with activation status and better single-line display
+                // UPDATED: Enhanced layout without activation status in modal
                 const modalContent = `
                     <div class="license-details">
                         <!-- License Information - Single Line -->
@@ -706,10 +718,6 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <div class="detail-item">
                                     <label>Status</label>
                                     <div class="detail-value">${getStatusBadge(license.isActive ? (license.daysLeft > 0 ? 'Active' : 'Expired') : 'Inactive')}</div>
-                                </div>
-                                <div class="detail-item">
-                                    <label>Activation</label>
-                                    <div class="detail-value">${getStatusBadge(license.deviceId && license.deviceId.trim() !== '' ? 'Activated' : 'Not Activated')}</div>
                                 </div>
                                 <div class="detail-item">
                                     <label>Plan Type</label>
@@ -875,7 +883,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     </td>
                     <td><span class="plan-badge">${isStripeLicense ? 'Stripe' : 'Manual'}</span></td>
                     <td>${getStatusBadge(status)}</td>
-                    <td>${getStatusBadge(activationStatus)}</td>
+                    <td>${getActivationBadge(activationStatus)}</td>
                     <td>
                         <div class="expiry-cell single-line">${formatDate(license.expiresAt)}</div>
                         ${daysLeft ? `<div class="days-left ${daysLeft.includes('Expired') ? 'expired' : 'active'}">
@@ -1091,7 +1099,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
                 
                 <button class="pagination-btn ${state.currentActivityPage === state.totalActivityPages ? 'disabled' : ''}" 
-                        ${state.currentActivityPage === state.totalActivityPages ? 'disabled' : ''} 
+                        ${state.currentActivityPage === state.totalLicensePages ? 'disabled' : ''} 
                         id="nextActivityPage">
                     <i class="fas fa-chevron-right"></i>
                 </button>
@@ -1360,9 +1368,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     case 'monthly':
                         return plan === 'monthly' || days === 30;
                     case 'activated':
-                        return activationStatus === 'Activated';
+                        return activationStatus === 'Yes';
                     case 'not-activated':
-                        return activationStatus === 'Not Activated';
+                        return activationStatus === 'No';
                     default:
                         return true;
                 }

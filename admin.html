@@ -320,6 +320,18 @@
             color: var(--accent-orange);
         }
 
+        /* Add these styles to your existing CSS */
+
+        .status-activated {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--accent-green);
+        }
+
+        .status-not-activated {
+            background: rgba(245, 158, 11, 0.1);
+            color: var(--accent-orange);
+        }
+
         /* Key Display */
         .license-key-display {
             font-family: 'Courier New', monospace;
@@ -1263,6 +1275,8 @@
                             <button class="filter-btn" data-filter="active">Active</button>
                             <button class="filter-btn" data-filter="inactive">Inactive</button>
                             <button class="filter-btn" data-filter="monthly">Monthly</button>
+                            <button class="filter-btn" data-filter="activated">Activated</button>
+                            <button class="filter-btn" data-filter="not-activated">Not Activated</button>
                         </div>
 
                         <div class="table-responsive">

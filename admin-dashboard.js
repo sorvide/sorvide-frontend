@@ -1,4 +1,4 @@
-// admin-dashboard.js - Updated with proper lifetime revenue, Yes/No activation, and corrected logic
+// admin-dashboard.js - COMPLETE with all fixes: lifetime revenue, activation status, renewals
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🔧 Loading Sorvide Admin Dashboard...');
@@ -35,7 +35,8 @@ document.addEventListener('DOMContentLoaded', function() {
         totalLicensePages: 1,
         totalActivityPages: 1,
         monthlyRevenue: 0,
-        lifetimeRevenue: 0
+        lifetimeRevenue: 0,
+        totalRenewals: 0
     };
     
     // ========== DOM ELEMENTS ==========
@@ -169,6 +170,13 @@ document.addEventListener('DOMContentLoaded', function() {
             : '<span class="status-badge status-not-activated">No</span>';
     }
     
+    function getRenewalBadge(renewalCount) {
+        const count = renewalCount || 0;
+        if (count === 0) return '<span class="status-badge">0</span>';
+        if (count === 1) return '<span class="status-badge status-renewed">1</span>';
+        return `<span class="status-badge status-renewed-many">${count}</span>`;
+    }
+    
     function truncateText(text, maxLength = 20) {
         if (!text) return '';
         if (text.length <= maxLength) return text;
@@ -178,44 +186,29 @@ document.addEventListener('DOMContentLoaded', function() {
     // ========== REVENUE CALCULATIONS ==========
     function calculateLifetimeRevenue() {
         let totalRevenue = 0;
-        const now = new Date();
+        let totalRenewals = 0;
         
-        // Calculate lifetime revenue from ALL licenses (including disabled ones)
-        // This includes:
-        // 1. All completed payments for licenses that were ever active
-        // 2. Current month's revenue for active licenses
-        // 3. Revenue only decreases when a license is DELETED
+        // CORRECTED: Lifetime revenue includes ALL payments received
+        // Formula: (1 + renewalCount) * $9.99 for each license
+        // - Every license has at least 1 payment (initial month)
+        // - Each renewal adds another $9.99
+        // - Does NOT decrease when deactivated (payment was already made)
+        // - Only decreases when DELETED
         
         state.licenses.forEach(license => {
             if (license.plan === 'monthly' || license.days === 30) {
-                const createdAt = new Date(license.createdAt);
-                const expiresAt = new Date(license.expiresAt);
+                // Every license contributes at least 1 month of revenue
+                totalRevenue += CONFIG.MONTHLY_PRICE;
                 
-                // Calculate total months this license has contributed revenue
-                // Since we don't offer refunds, once a license is created, it contributes to revenue
-                // even if it's later disabled
-                
-                if (license.stripeSubscriptionId) {
-                    // Stripe subscription license
-                    if (license.isActive && expiresAt > now) {
-                        // Still active - include current month + all past months
-                        const monthsActive = Math.ceil((now - createdAt) / (1000 * 60 * 60 * 24 * 30.44));
-                        totalRevenue += monthsActive * CONFIG.MONTHLY_PRICE;
-                    } else {
-                        // Inactive or expired - include all completed months
-                        const completedMonths = Math.floor((expiresAt - createdAt) / (1000 * 60 * 60 * 24 * 30.44));
-                        totalRevenue += completedMonths * CONFIG.MONTHLY_PRICE;
-                    }
-                } else {
-                    // Manual license - count the full duration
-                    const days = license.days || 30;
-                    const months = days / 30.44; // Convert days to months
-                    totalRevenue += months * CONFIG.MONTHLY_PRICE;
-                }
+                // Add revenue for each renewal
+                const renewals = license.renewalCount || 0;
+                totalRevenue += renewals * CONFIG.MONTHLY_PRICE;
+                totalRenewals += renewals;
             }
         });
         
         state.lifetimeRevenue = parseFloat(totalRevenue.toFixed(2));
+        state.totalRenewals = totalRenewals;
         
         // Calculate current monthly revenue (active subscriptions only)
         const activeMonthlyLicenses = state.licenses.filter(l => 
@@ -389,7 +382,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 validationCount: 15,
                 days: 30,
                 isManual: false,
-                stripeSubscriptionId: 'sub_123456789'
+                stripeSubscriptionId: 'sub_123456789',
+                renewalCount: 1,
+                lastRenewalAt: new Date(Date.now() - 86400000 * 15).toISOString()
             }
         ];
         
@@ -574,7 +569,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 await loadLicenses();
                 await loadRecentActivity();
                 
-                // Recalculate revenue
+                // Recalculate revenue (lifetime increases by $9.99 for new license)
                 calculateLifetimeRevenue();
                 
                 return response.license;
@@ -630,7 +625,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 await loadLicenses();
                 await loadRecentActivity();
                 
-                // Recalculate revenue (monthly revenue decreases, lifetime stays the same)
+                // Recalculate revenue (monthly revenue decreases, lifetime STAYS THE SAME)
                 calculateLifetimeRevenue();
                 
                 return true;
@@ -659,7 +654,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 await loadLicenses();
                 await loadRecentActivity();
                 
-                // Recalculate revenue (lifetime revenue decreases when deleted)
+                // Recalculate revenue (lifetime revenue DECREASES when deleted)
                 calculateLifetimeRevenue();
                 
                 return true;
@@ -683,7 +678,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 renderLicenseTable();
                 renderLicensePagination();
                 
-                // Recalculate revenue (lifetime revenue decreases when deleted)
+                // Recalculate revenue (lifetime revenue DECREASES when deleted)
                 calculateLifetimeRevenue();
                 
                 showNotification('License removed from local view (backend delete endpoint needed)', 'warning');
@@ -702,7 +697,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (response.success) {
                 const license = response.license;
                 
-                // UPDATED: Enhanced layout without activation status in modal
+                // UPDATED: Enhanced layout with renewal information
                 const modalContent = `
                     <div class="license-details">
                         <!-- License Information - Single Line -->
@@ -737,6 +732,26 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <div class="detail-item">
                                     <label>Email Address</label>
                                     <div class="detail-value">${license.customerEmail}</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Subscription Details - Single Line -->
+                        <div class="detail-section">
+                            <h4><i class="fas fa-sync-alt"></i> Subscription Details</h4>
+                            <div class="detail-grid single-line">
+                                <div class="detail-item">
+                                    <label>Renewals</label>
+                                    <div class="detail-value">${getRenewalBadge(license.renewalCount)}</div>
+                                </div>
+                                ${license.lastRenewalAt ? `
+                                <div class="detail-item">
+                                    <label>Last Renewal</label>
+                                    <div class="detail-value">${formatDate(license.lastRenewalAt)}</div>
+                                </div>` : ''}
+                                <div class="detail-item">
+                                    <label>Activated</label>
+                                    <div class="detail-value">${getActivationBadge(license.deviceId && license.deviceId.trim() !== '' ? 'Yes' : 'No')}</div>
                                 </div>
                             </div>
                         </div>
@@ -836,7 +851,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (state.filteredLicenses.length === 0) {
             tableBody.innerHTML = `
                 <tr>
-                    <td colspan="8" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                    <td colspan="9" style="text-align: center; padding: 40px; color: var(--text-secondary);">
                         <i class="fas fa-inbox" style="font-size: 32px; margin-bottom: 10px; display: block; opacity: 0.5;"></i>
                         No licenses found
                         ${state.searchQuery ? ` for "${state.searchQuery}"` : ''}
@@ -857,6 +872,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const activationStatus = getActivationStatus(license);
             const daysLeft = formatDaysLeft(license);
             const isStripeLicense = license.stripeSubscriptionId && !license.isManual;
+            const renewalCount = license.renewalCount || 0;
             
             // Determine delete button color
             let deleteBtnClass = 'btn-stripe-delete';
@@ -884,6 +900,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <td><span class="plan-badge">${isStripeLicense ? 'Stripe' : 'Manual'}</span></td>
                     <td>${getStatusBadge(status)}</td>
                     <td>${getActivationBadge(activationStatus)}</td>
+                    <td>${getRenewalBadge(renewalCount)}</td>
                     <td>
                         <div class="expiry-cell single-line">${formatDate(license.expiresAt)}</div>
                         ${daysLeft ? `<div class="days-left ${daysLeft.includes('Expired') ? 'expired' : 'active'}">
@@ -1238,6 +1255,7 @@ document.addEventListener('DOMContentLoaded', function() {
         state.currentActivityPage = 1;
         state.monthlyRevenue = 0;
         state.lifetimeRevenue = 0;
+        state.totalRenewals = 0;
         
         showNotification('Logged out successfully', 'info');
     }
@@ -1365,6 +1383,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         return status === 'Active';
                     case 'inactive':
                         return status === 'Inactive';
+                    case 'expired':
+                        return status === 'Expired';
                     case 'monthly':
                         return plan === 'monthly' || days === 30;
                     case 'activated':
@@ -1427,7 +1447,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
         
-        // Filters - UPDATED to include activation filters
+        // Filters
         const filterButtons = document.querySelectorAll('.filter-btn');
         if (filterButtons) {
             filterButtons.forEach(btn => {

@@ -6,7 +6,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // ========== CONFIGURATION ==========
     const CONFIG = {
         BACKEND_API: 'https://sorvide-backend.onrender.com/api',
-        ADMIN_TOKEN: 'SorvAdm!2024@Sec#Key',
+        ADMIN_TOKEN: 'sorvidefangadmin',
         
         // Revenue calculation
         MONTHLY_PRICE: 9.99,

@@ -1,4 +1,4 @@
-// admin-dashboard.js - COMPLETE with all fixes (license generation, days left, uniform boxes)
+// admin-dashboard.js - COMPLETE with fixes for renewals, emails, and test email feature
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🔧 Loading Sorvide Admin Dashboard...');
@@ -30,7 +30,7 @@ document.addEventListener('DOMContentLoaded', function() {
         isStripeLicenseToDelete: false,
         currentLicensePage: 1,
         currentActivityPage: 1,
-        licensesPerPage: 10,
+        licensesPerPage: 12,
         activitiesPerPage: 5,
         totalLicensePages: 1,
         totalActivityPages: 1,
@@ -225,17 +225,29 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (isStripeLicense) {
                 if (license.plan === 'monthly' || license.days === 30) {
-                    // Every Stripe monthly license contributes at least 1 month of revenue
-                    monthlyRevenue += CONFIG.MONTHLY_PRICE;
+                    // Every NEW Stripe monthly license contributes exactly 1 month of revenue
+                    // Renewals should only count if they actually happened (renewalCount > 0)
+                    const renewals = license.renewalCount || 0;
+                    
+                    // Initial purchase: $9.99
                     lifetimeRevenue += CONFIG.MONTHLY_PRICE;
                     
-                    // Add revenue for each renewal (only for Stripe licenses)
-                    const renewals = license.renewalCount || 0;
-                    monthlyRevenue += renewals * CONFIG.MONTHLY_PRICE;
-                    lifetimeRevenue += renewals * CONFIG.MONTHLY_PRICE;
-                    totalRenewals += renewals;
+                    // Only add renewal revenue if renewalCount > 0
+                    if (renewals > 0) {
+                        lifetimeRevenue += renewals * CONFIG.MONTHLY_PRICE;
+                        totalRenewals += renewals;
+                    }
+                    
+                    // For monthly revenue: count active subscriptions only
+                    if (license.isActive) {
+                        const expiryDate = new Date(license.expiresAt);
+                        const now = new Date();
+                        if (expiryDate > now) {
+                            monthlyRevenue += CONFIG.MONTHLY_PRICE;
+                        }
+                    }
                 } else if (license.plan === 'yearly' || license.days === 365) {
-                    // Yearly Stripe licenses
+                    // Yearly Stripe licenses - one-time payment
                     lifetimeRevenue += CONFIG.YEARLY_PRICE;
                     // Yearly licenses don't contribute to monthly revenue
                 }
@@ -245,25 +257,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         
-        // Calculate current monthly revenue (active Stripe subscriptions only)
-        const activeStripeMonthlyLicenses = state.licenses.filter(l => {
-            if (!l.isActive) return false;
-            
-            // Must be active Stripe monthly license
-            const isStripeMonthly = l.stripeSubscriptionId && !l.isManual && 
-                                   (l.plan === 'monthly' || l.days === 30);
-            
-            if (!isStripeMonthly) return false;
-            
-            try {
-                return new Date(l.expiresAt) > new Date();
-            } catch (e) {
-                return false;
-            }
-        }).length;
-        
-        // FIX: Monthly revenue should only show revenue from ACTIVE Stripe monthly subscriptions
-        state.monthlyRevenue = activeStripeMonthlyLicenses * CONFIG.MONTHLY_PRICE;
+        state.monthlyRevenue = parseFloat(monthlyRevenue.toFixed(2));
         state.lifetimeRevenue = parseFloat(lifetimeRevenue.toFixed(2));
         state.totalRenewals = totalRenewals;
         
@@ -524,6 +518,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 state.licenses = data.licenses || [];
                 state.filteredLicenses = [...state.licenses];
                 
+                // FIX: Ensure renewalCount is 0 for new licenses (not 1)
+                state.licenses.forEach(license => {
+                    if (license.renewalCount === 1 && !license.lastRenewalAt) {
+                        // If renewalCount is 1 but no lastRenewalAt, it's a new purchase
+                        // Reset to 0
+                        license.renewalCount = 0;
+                        console.log('Fixed renewalCount for new license:', license.licenseKey, 'set to 0');
+                    }
+                });
+                
                 // Update total licenses count
                 if (elements.totalLicenses) {
                     elements.totalLicenses.textContent = state.licenses.length.toLocaleString();
@@ -699,6 +703,32 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (error) {
             console.error('Send email error:', error);
             showNotification(`Failed to send email: ${error.message}`, 'error');
+            throw error;
+        }
+    }
+    
+    // NEW: Send test email function
+    async function sendTestEmail(email, emailType) {
+        try {
+            showNotification(`Sending ${emailType} test email...`, 'info');
+            
+            const response = await fetchWithAuth('/admin/send-test-email', {
+                method: 'POST',
+                body: JSON.stringify({ 
+                    email: email,
+                    emailType: emailType // 'payment' or 'renewal'
+                })
+            });
+            
+            if (response.success) {
+                showNotification(`${emailType} test email sent successfully!`, 'success');
+                return true;
+            } else {
+                throw new Error(response.error || 'Failed to send test email');
+            }
+        } catch (error) {
+            console.error('Send test email error:', error);
+            showNotification(`Failed to send test email: ${error.message}`, 'error');
             throw error;
         }
     }
@@ -1299,6 +1329,137 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
+    // ========== TEST EMAIL MODAL ==========
+    function showTestEmailModal() {
+        // Create modal if it doesn't exist
+        let modal = document.getElementById('testEmailModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'testEmailModal';
+            modal.className = 'modal';
+            modal.innerHTML = `
+                <div class="modal-content" style="max-width: 400px;">
+                    <div class="modal-header">
+                        <h3><i class="fas fa-envelope"></i> Send Test Email</h3>
+                        <button class="close-modal">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="testEmailAddress">Email Address</label>
+                            <input type="email" id="testEmailAddress" class="form-control" placeholder="test@example.com">
+                        </div>
+                        <div class="form-group">
+                            <label>Email Type</label>
+                            <div class="email-type-options" style="display: flex; gap: 10px; margin-bottom: 20px;">
+                                <div class="email-type-option selected" data-type="payment">
+                                    <i class="fas fa-shopping-cart"></i>
+                                    <span>Payment Email</span>
+                                </div>
+                                <div class="email-type-option" data-type="renewal">
+                                    <i class="fas fa-sync-alt"></i>
+                                    <span>Renewal Email</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="action-buttons" style="margin-top: 20px;">
+                            <button class="btn btn-primary" id="sendTestEmailBtn" style="width: 100%;">
+                                <i class="fas fa-paper-plane"></i> Send Test Email
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            
+            // Add styles for email type options
+            const style = document.createElement('style');
+            style.textContent = `
+                .email-type-option {
+                    flex: 1;
+                    padding: 15px;
+                    border: 2px solid var(--border-light);
+                    border-radius: 8px;
+                    text-align: center;
+                    cursor: pointer;
+                    transition: all 0.3s;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    gap: 8px;
+                }
+                .email-type-option:hover {
+                    border-color: var(--primary-main);
+                    background: var(--background-light);
+                }
+                .email-type-option.selected {
+                    border-color: var(--primary-main);
+                    background: rgba(74, 79, 216, 0.1);
+                    font-weight: 600;
+                }
+                .email-type-option i {
+                    font-size: 20px;
+                    color: var(--primary-main);
+                }
+                .email-type-option span {
+                    font-size: 14px;
+                    color: var(--text-primary);
+                }
+            `;
+            document.head.appendChild(style);
+            
+            // Add event listeners
+            modal.querySelector('.close-modal').addEventListener('click', () => {
+                modal.classList.remove('active');
+            });
+            
+            // Email type selection
+            modal.querySelectorAll('.email-type-option').forEach(option => {
+                option.addEventListener('click', function() {
+                    modal.querySelectorAll('.email-type-option').forEach(o => o.classList.remove('selected'));
+                    this.classList.add('selected');
+                });
+            });
+            
+            // Send test email button
+            modal.querySelector('#sendTestEmailBtn').addEventListener('click', async function() {
+                const email = modal.querySelector('#testEmailAddress').value.trim();
+                const emailType = modal.querySelector('.email-type-option.selected').dataset.type;
+                
+                if (!email) {
+                    showNotification('Please enter an email address', 'error');
+                    return;
+                }
+                
+                // Validate email
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(email)) {
+                    showNotification('Please enter a valid email address', 'error');
+                    return;
+                }
+                
+                try {
+                    await sendTestEmail(email, emailType);
+                    modal.classList.remove('active');
+                    // Clear the input
+                    modal.querySelector('#testEmailAddress').value = '';
+                } catch (error) {
+                    // Error already shown in sendTestEmail function
+                }
+            });
+            
+            // Close on outside click
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    modal.classList.remove('active');
+                }
+            });
+        }
+        
+        // Show modal
+        modal.classList.add('active');
+        modal.querySelector('#testEmailAddress').focus();
+    }
+    
     // ========== AUTHENTICATION FUNCTIONS ==========
     async function login() {
         const password = elements.adminPassword ? elements.adminPassword.value.trim() : '';
@@ -1787,6 +1948,27 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Check for existing session
         checkExistingSession();
+        
+        // Add Test Email button to Quick Actions
+        setTimeout(() => {
+            const quickActionsGrid = document.querySelector('.quick-actions-grid');
+            if (quickActionsGrid) {
+                const testEmailCard = document.createElement('div');
+                testEmailCard.className = 'action-card';
+                testEmailCard.id = 'testEmailBtn';
+                testEmailCard.innerHTML = `
+                    <i class="fas fa-envelope"></i>
+                    <div>
+                        <h4>Test Email</h4>
+                        <p>Send test payment/renewal emails</p>
+                    </div>
+                `;
+                quickActionsGrid.appendChild(testEmailCard);
+                
+                // Add event listener
+                testEmailCard.addEventListener('click', showTestEmailModal);
+            }
+        }, 500);
         
         // Focus on password input if showing login
         if (elements.adminPassword && elements.loginScreen.style.display !== 'none') {

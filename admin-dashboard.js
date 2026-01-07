@@ -1,4 +1,4 @@
-// admin-dashboard.js - COMPLETE with all fixes (removed adjustActivityHeight)
+// admin-dashboard.js - COMPLETE with all fixes (status box size and revenue calculation)
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🔧 Loading Sorvide Admin Dashboard...');
@@ -161,20 +161,21 @@ document.addEventListener('DOMContentLoaded', function() {
             'Unknown': 'status-inactive'
         };
         
-        return `<span class="status-badge ${badges[status] || 'status-inactive'}">${status}</span>`;
+        // FIX: All status badges now have the same compact styling
+        return `<span class="status-badge" style="display: inline-block; min-width: 60px; text-align: center; padding: 3px 8px;">${status}</span>`;
     }
     
     function getActivationBadge(isActivated) {
+        // FIX: All activation badges now have the same compact styling
         return isActivated === 'Yes' 
-            ? '<span class="status-badge status-activated">Yes</span>'
-            : '<span class="status-badge status-not-activated">No</span>';
+            ? '<span class="status-badge status-activated" style="display: inline-block; min-width: 40px; text-align: center; padding: 3px 8px;">Yes</span>'
+            : '<span class="status-badge status-not-activated" style="display: inline-block; min-width: 40px; text-align: center; padding: 3px 8px;">No</span>';
     }
     
     function getRenewalBadge(renewalCount) {
         const count = renewalCount || 0;
-        if (count === 0) return '<span class="status-badge">0</span>';
-        if (count === 1) return '<span class="status-badge status-renewed">1</span>';
-        return `<span class="status-badge status-renewed-many">${count}</span>`;
+        // FIX: All renewal badges now have the same compact styling
+        return `<span class="status-badge" style="display: inline-block; min-width: 25px; text-align: center; padding: 3px 8px;">${count}</span>`;
     }
     
     function truncateText(text, maxLength = 20) {
@@ -183,41 +184,62 @@ document.addEventListener('DOMContentLoaded', function() {
         return text.substring(0, maxLength - 3) + '...';
     }
     
-    // ========== REVENUE CALCULATIONS ==========
+    // ========== REVENUE CALCULATIONS (FIXED) ==========
     function calculateLifetimeRevenue() {
-        let totalRevenue = 0;
+        let monthlyRevenue = 0;
+        let lifetimeRevenue = 0;
         let totalRenewals = 0;
         
-        // CORRECTED: Lifetime revenue includes ALL payments received
-        // Formula: (1 + renewalCount) * $9.99 for each license
-        // - Every license has at least 1 payment (initial month)
-        // - Each renewal adds another $9.99
-        // - Does NOT decrease when deactivated (payment was already made)
-        // - Only decreases when DELETED
+        // IMPORTANT FIX: Only count Stripe licenses for revenue
+        // Manual licenses (trial, 30 days, yearly) should NOT count towards revenue
         
         state.licenses.forEach(license => {
-            if (license.plan === 'monthly' || license.days === 30) {
-                // Every license contributes at least 1 month of revenue
-                totalRevenue += CONFIG.MONTHLY_PRICE;
-                
-                // Add revenue for each renewal
-                const renewals = license.renewalCount || 0;
-                totalRevenue += renewals * CONFIG.MONTHLY_PRICE;
-                totalRenewals += renewals;
+            // Check if it's a Stripe license (has stripeSubscriptionId and NOT manual)
+            const isStripeLicense = license.stripeSubscriptionId && !license.isManual;
+            
+            if (isStripeLicense) {
+                if (license.plan === 'monthly' || license.days === 30) {
+                    // Every Stripe monthly license contributes at least 1 month of revenue
+                    monthlyRevenue += CONFIG.MONTHLY_PRICE;
+                    lifetimeRevenue += CONFIG.MONTHLY_PRICE;
+                    
+                    // Add revenue for each renewal (only for Stripe licenses)
+                    const renewals = license.renewalCount || 0;
+                    monthlyRevenue += renewals * CONFIG.MONTHLY_PRICE;
+                    lifetimeRevenue += renewals * CONFIG.MONTHLY_PRICE;
+                    totalRenewals += renewals;
+                } else if (license.plan === 'yearly' || license.days === 365) {
+                    // Yearly Stripe licenses
+                    lifetimeRevenue += CONFIG.YEARLY_PRICE;
+                    // Yearly licenses don't contribute to monthly revenue
+                }
+            } else {
+                // Manual licenses (trial, 30-day manual, yearly manual) - DO NOT COUNT for revenue
+                console.log('Manual license excluded from revenue:', license.licenseKey, 'Type:', license.plan || `${license.days} days`);
             }
         });
         
-        state.lifetimeRevenue = parseFloat(totalRevenue.toFixed(2));
+        // Calculate current monthly revenue (active Stripe subscriptions only)
+        const activeStripeMonthlyLicenses = state.licenses.filter(l => {
+            if (!l.isActive) return false;
+            
+            // Must be active Stripe monthly license
+            const isStripeMonthly = l.stripeSubscriptionId && !l.isManual && 
+                                   (l.plan === 'monthly' || l.days === 30);
+            
+            if (!isStripeMonthly) return false;
+            
+            try {
+                return new Date(l.expiresAt) > new Date();
+            } catch (e) {
+                return false;
+            }
+        }).length;
+        
+        // FIX: Monthly revenue should only show revenue from ACTIVE Stripe monthly subscriptions
+        state.monthlyRevenue = activeStripeMonthlyLicenses * CONFIG.MONTHLY_PRICE;
+        state.lifetimeRevenue = parseFloat(lifetimeRevenue.toFixed(2));
         state.totalRenewals = totalRenewals;
-        
-        // Calculate current monthly revenue (active subscriptions only)
-        const activeMonthlyLicenses = state.licenses.filter(l => 
-            l.isActive && 
-            (l.plan === 'monthly' || l.days === 30) &&
-            new Date(l.expiresAt) > new Date()
-        ).length;
-        
-        state.monthlyRevenue = activeMonthlyLicenses * CONFIG.MONTHLY_PRICE;
         
         // Update the display
         updateRevenueDisplay();
@@ -351,7 +373,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Load recent activity
             await loadRecentActivity();
             
-            // Calculate revenue from loaded licenses
+            // Calculate revenue from loaded licenses (with new logic)
             calculateLifetimeRevenue();
             
             showNotification('Dashboard data loaded successfully', 'success');
@@ -366,16 +388,16 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function loadSampleData() {
-        // Sample data for testing
+        // Sample data for testing with mixed license types
         state.licenses = [
             {
                 licenseKey: 'MONTH-SORV-ABC1-2345-6789-DEF0',
-                customerEmail: 'test@example.com',
-                customerName: 'Test User',
+                customerEmail: 'stripe@example.com',
+                customerName: 'Stripe Customer',
                 plan: 'monthly',
                 isActive: true,
-                createdAt: new Date(Date.now() - 86400000 * 45).toISOString(), // 45 days ago
-                expiresAt: new Date(Date.now() + 86400000 * 15).toISOString(), // 15 days left
+                createdAt: new Date(Date.now() - 86400000 * 45).toISOString(),
+                expiresAt: new Date(Date.now() + 86400000 * 15).toISOString(),
                 deviceId: 'DEV-123456789',
                 deviceName: 'Chrome Extension',
                 lastValidated: new Date().toISOString(),
@@ -383,8 +405,47 @@ document.addEventListener('DOMContentLoaded', function() {
                 days: 30,
                 isManual: false,
                 stripeSubscriptionId: 'sub_123456789',
-                renewalCount: 1,
+                stripeCustomerId: 'cus_123456789',
+                renewalCount: 2,
                 lastRenewalAt: new Date(Date.now() - 86400000 * 15).toISOString()
+            },
+            {
+                licenseKey: 'TRIAL-SORV-9876-5432-ABCD-EF01',
+                customerEmail: 'trial@example.com',
+                customerName: 'Trial User',
+                plan: 'trial',
+                isActive: true,
+                createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
+                expiresAt: new Date(Date.now() + 86400000 * 5).toISOString(),
+                deviceId: null,
+                deviceName: null,
+                lastValidated: null,
+                validationCount: 0,
+                days: 7,
+                isManual: true,
+                stripeSubscriptionId: null,
+                stripeCustomerId: null,
+                renewalCount: 0,
+                lastRenewalAt: null
+            },
+            {
+                licenseKey: 'MANUAL-MONTH-SORV-XXXX-YYYY-ZZZZ',
+                customerEmail: 'manual@example.com',
+                customerName: 'Manual License User',
+                plan: 'monthly',
+                isActive: true,
+                createdAt: new Date(Date.now() - 86400000 * 10).toISOString(),
+                expiresAt: new Date(Date.now() + 86400000 * 20).toISOString(),
+                deviceId: 'DEV-987654321',
+                deviceName: 'Chrome Extension',
+                lastValidated: new Date().toISOString(),
+                validationCount: 5,
+                days: 30,
+                isManual: true,
+                stripeSubscriptionId: null,
+                stripeCustomerId: null,
+                renewalCount: 0,
+                lastRenewalAt: null
             }
         ];
         
@@ -401,7 +462,7 @@ document.addEventListener('DOMContentLoaded', function() {
         state.filteredLicenses = [...state.licenses];
         state.filteredActivities = [...state.activities];
         
-        // Calculate revenue from sample data
+        // Calculate revenue from sample data (should only count Stripe license)
         calculateLifetimeRevenue();
         
         // Update dashboard stats
@@ -551,7 +612,12 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             
             if (response.success) {
-                showNotification(`License created successfully for ${days} days!`, 'success');
+                // FIX: When creating a 30-day manual license, it should NOT affect revenue
+                let message = `License created successfully for ${days} days!`;
+                if (days === 30) {
+                    message += ' (Manual license - does not affect revenue)';
+                }
+                showNotification(message, 'success');
                 
                 // Show the generated key
                 if (elements.generatedKey) {
@@ -569,7 +635,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 await loadLicenses();
                 await loadRecentActivity();
                 
-                // Recalculate revenue (lifetime increases by $9.99 for new license)
+                // Recalculate revenue (manual licenses should not affect revenue)
                 calculateLifetimeRevenue();
                 
                 return response.license;
@@ -625,7 +691,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 await loadLicenses();
                 await loadRecentActivity();
                 
-                // Recalculate revenue (monthly revenue decreases, lifetime STAYS THE SAME)
+                // Recalculate revenue (monthly revenue decreases for Stripe, lifetime STAYS THE SAME)
                 calculateLifetimeRevenue();
                 
                 return true;
@@ -654,7 +720,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 await loadLicenses();
                 await loadRecentActivity();
                 
-                // Recalculate revenue (lifetime revenue DECREASES when deleted)
+                // Recalculate revenue (lifetime revenue DECREASES when Stripe license deleted)
                 calculateLifetimeRevenue();
                 
                 return true;
@@ -667,6 +733,9 @@ document.addEventListener('DOMContentLoaded', function() {
             // If DELETE endpoint doesn't exist yet, simulate deletion locally
             const licenseIndex = state.licenses.findIndex(l => l.licenseKey === licenseKey);
             if (licenseIndex !== -1) {
+                const license = state.licenses[licenseIndex];
+                const isStripeLicense = license.stripeSubscriptionId && !license.isManual;
+                
                 state.licenses.splice(licenseIndex, 1);
                 state.filteredLicenses = state.licenses.filter(l => l.licenseKey !== licenseKey);
                 
@@ -678,8 +747,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 renderLicenseTable();
                 renderLicensePagination();
                 
-                // Recalculate revenue (lifetime revenue DECREASES when deleted)
-                calculateLifetimeRevenue();
+                // Recalculate revenue (only if it was a Stripe license)
+                if (isStripeLicense) {
+                    calculateLifetimeRevenue();
+                }
                 
                 showNotification('License removed from local view (backend delete endpoint needed)', 'warning');
                 return true;
@@ -697,7 +768,12 @@ document.addEventListener('DOMContentLoaded', function() {
             if (response.success) {
                 const license = response.license;
                 
-                // FIXED: Enhanced layout with consistent box heights
+                // Calculate days left
+                const expiryDate = new Date(license.expiresAt);
+                const now = new Date();
+                const daysLeft = Math.ceil((expiryDate - now) / (1000 * 60 * 60 * 24));
+                
+                // Enhanced layout with consistent box heights
                 const modalContent = `
                     <div class="license-details">
                         <!-- License Information - Single Line -->
@@ -706,17 +782,19 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="detail-grid single-line">
                                 <div class="detail-item">
                                     <label>License Key</label>
-                                    <div class="detail-value license-key-value full-width" title="${license.key}">
-                                        ${license.key}
+                                    <div class="detail-value license-key-value full-width" title="${license.licenseKey}">
+                                        ${license.licenseKey}
                                     </div>
                                 </div>
                                 <div class="detail-item">
                                     <label>Status</label>
-                                    <div class="detail-value">${getStatusBadge(license.isActive ? (license.daysLeft > 0 ? 'Active' : 'Expired') : 'Inactive')}</div>
+                                    <div class="detail-value detail-value-uniform">
+                                        ${getStatusBadge(license.isActive ? (daysLeft > 0 ? 'Active' : 'Expired') : 'Inactive')}
+                                    </div>
                                 </div>
                                 <div class="detail-item">
                                     <label>Plan Type</label>
-                                    <div class="detail-value">${license.plan} (${license.days || 30} days)</div>
+                                    <div class="detail-value detail-value-uniform">${license.plan || 'monthly'} (${license.days || 30} days)</div>
                                 </div>
                             </div>
                         </div>
@@ -736,7 +814,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             </div>
                         </div>
                         
-                        <!-- Subscription Details - Single Line (FIXED: Consistent height) -->
+                        <!-- Subscription Details - Single Line -->
                         <div class="detail-section">
                             <h4><i class="fas fa-sync-alt"></i> Subscription Details</h4>
                             <div class="detail-grid single-line uniform-height">
@@ -756,6 +834,37 @@ document.addEventListener('DOMContentLoaded', function() {
                             </div>
                         </div>
                         
+                        <!-- Revenue Information - Single Line -->
+                        <div class="detail-section">
+                            <h4><i class="fas fa-dollar-sign"></i> Revenue Information</h4>
+                            <div class="detail-grid single-line">
+                                <div class="detail-item">
+                                    <label>License Type</label>
+                                    <div class="detail-value detail-value-uniform">
+                                        ${license.isManual ? 
+                                            '<span class="status-badge" style="background: rgba(245, 158, 11, 0.1); color: #f59e0b;">Manual</span>' : 
+                                            '<span class="status-badge" style="background: rgba(59, 130, 246, 0.1); color: #3b82f6;">Stripe</span>'}
+                                    </div>
+                                </div>
+                                <div class="detail-item">
+                                    <label>Counts to Revenue</label>
+                                    <div class="detail-value detail-value-uniform">
+                                        ${license.isManual ? 
+                                            '<span class="status-badge status-not-activated">No</span>' : 
+                                            '<span class="status-badge status-activated">Yes</span>'}
+                                    </div>
+                                </div>
+                                <div class="detail-item">
+                                    <label>Total Value</label>
+                                    <div class="detail-value detail-value-uniform">
+                                        $${license.isManual ? '0.00' : 
+                                           (license.plan === 'yearly' || license.days === 365 ? CONFIG.YEARLY_PRICE.toFixed(2) : 
+                                           ((license.renewalCount || 0) + 1) * CONFIG.MONTHLY_PRICE)}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
                         <!-- Dates & Times - Single Line -->
                         <div class="detail-section">
                             <h4><i class="fas fa-calendar"></i> Dates & Times</h4>
@@ -768,10 +877,12 @@ document.addEventListener('DOMContentLoaded', function() {
                                     <label>Expires On</label>
                                     <div class="detail-value">${formatDate(license.expiresAt)}</div>
                                 </div>
-                                ${license.daysLeft > 0 && license.isActive ? `
+                                ${daysLeft > 0 && license.isActive ? `
                                 <div class="detail-item">
                                     <label>Days Remaining</label>
-                                    <div class="detail-value status-active">${license.daysLeft} days</div>
+                                    <div class="detail-value detail-value-uniform">
+                                        <span class="status-badge status-active" style="min-width: 70px;">${daysLeft} days</span>
+                                    </div>
                                 </div>` : ''}
                             </div>
                         </div>
@@ -784,16 +895,16 @@ document.addEventListener('DOMContentLoaded', function() {
                                 ${license.deviceId ? `
                                 <div class="detail-item">
                                     <label>Device</label>
-                                    <div class="detail-value">${license.deviceName || 'Chrome Extension'}</div>
+                                    <div class="detail-value detail-value-uniform">${license.deviceName || 'Chrome Extension'}</div>
                                 </div>` : ''}
                                 <div class="detail-item">
                                     <label>Validations</label>
-                                    <div class="detail-value">${license.validationCount || 0} times</div>
+                                    <div class="detail-value detail-value-uniform">${license.validationCount || 0} times</div>
                                 </div>
                                 ${license.lastValidated ? `
                                 <div class="detail-item">
                                     <label>Last Validated</label>
-                                    <div class="detail-value">${formatDate(license.lastValidated)}</div>
+                                    <div class="detail-value detail-value-uniform">${formatDate(license.lastValidated)}</div>
                                 </div>` : ''}
                             </div>
                         </div>` : ''}
@@ -818,8 +929,8 @@ document.addEventListener('DOMContentLoaded', function() {
                                     </div>
                                 </div>` : ''}
                                 <div class="detail-item">
-                                    <label>License Type</label>
-                                    <div class="detail-value">${license.isManual ? 'Manual Creation' : 'Stripe Purchase'}</div>
+                                    <label>Payment Method</label>
+                                    <div class="detail-value detail-value-uniform">Stripe</div>
                                 </div>
                             </div>
                         </div>` : ''}
@@ -883,6 +994,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 deleteBtnTitle = 'Delete Manual License';
             }
             
+            // Determine plan display
+            let planDisplay = '';
+            if (license.days === 3 || license.days === 7) {
+                planDisplay = 'Trial';
+            } else if (license.days === 30) {
+                planDisplay = isStripeLicense ? 'Stripe Monthly' : 'Manual Monthly';
+            } else if (license.days === 365) {
+                planDisplay = isStripeLicense ? 'Stripe Yearly' : 'Manual Yearly';
+            } else {
+                planDisplay = isStripeLicense ? 'Stripe' : 'Manual';
+            }
+            
             html += `
                 <tr>
                     <td>
@@ -897,10 +1020,10 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="customer-email">${truncateText(license.customerEmail, 20)}</div>
                         </div>
                     </td>
-                    <td><span class="plan-badge compact">${isStripeLicense ? 'Stripe' : 'Manual'}</span></td>
-                    <td>${getStatusBadge(status)}</td>
-                    <td>${getActivationBadge(activationStatus)}</td>
-                    <td>${getRenewalBadge(renewalCount)}</td>
+                    <td><span class="plan-badge compact" style="${license.isManual ? 'background: rgba(245, 158, 11, 0.1); color: #f59e0b;' : 'background: rgba(59, 130, 246, 0.1); color: #3b82f6;'}">${planDisplay}</span></td>
+                    <td style="min-width: 80px;">${getStatusBadge(status)}</td>
+                    <td style="min-width: 60px;">${getActivationBadge(activationStatus)}</td>
+                    <td style="min-width: 40px;">${getRenewalBadge(renewalCount)}</td>
                     <td>
                         <div class="expiry-cell single-line compact">${formatDate(license.expiresAt)}</div>
                         ${daysLeft ? `<div class="days-left ${daysLeft.includes('Expired') ? 'expired' : 'active'}">

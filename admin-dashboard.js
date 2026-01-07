@@ -1,4 +1,4 @@
-// admin-dashboard.js - COMPLETE with all fixes
+// admin-dashboard.js - COMPLETE with all fixes (license generation, days left, uniform boxes)
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🔧 Loading Sorvide Admin Dashboard...');
@@ -76,6 +76,9 @@ document.addEventListener('DOMContentLoaded', function() {
         elements.activityPaginationContainer = document.getElementById('activityPaginationContainer');
         elements.clearAllActivityBtn = document.getElementById('clearAllActivityBtn');
         
+        // Get duration options
+        elements.durationOptions = document.querySelectorAll('.duration-option');
+        
         console.log('DOM elements initialized');
     }
     
@@ -131,20 +134,24 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    function formatDaysLeft(license) {
-        if (!license.isActive) return '';
+    function getDaysLeft(license) {
+        if (!license.isActive) return -1;
         
         try {
             const expiry = new Date(license.expiresAt);
             const now = new Date();
             const daysLeft = Math.ceil((expiry - now) / (1000 * 60 * 60 * 24));
-            
-            if (daysLeft <= 0) return 'Expired';
-            if (daysLeft === 1) return '1 day left';
-            return `${daysLeft} days left`;
+            return daysLeft;
         } catch (e) {
-            return '';
+            return -1;
         }
+    }
+    
+    function formatDaysLeftDisplay(daysLeft) {
+        if (daysLeft < 0) return '';
+        if (daysLeft === 0) return 'Expires today';
+        if (daysLeft === 1) return '1 day left';
+        return `${daysLeft}d left`;
     }
     
     function getLicenseStatus(license) {
@@ -174,26 +181,23 @@ document.addEventListener('DOMContentLoaded', function() {
             'Unknown': 'status-inactive'
         };
         
-        // FIX: Status badges with proper colors
         const badgeClass = badges[status] || 'status-inactive';
-        return `<span class="status-badge ${badgeClass}" style="display: inline-block; min-width: 65px; text-align: center; padding: 4px 10px; font-size: 0.85em;">${status}</span>`;
+        return `<span class="status-badge ${badgeClass}" style="display: inline-block; min-width: 65px; text-align: center; padding: 4px 8px; font-size: 0.8em; border-radius: 12px;">${status}</span>`;
     }
     
     function getActivationBadge(isActivated) {
-        // FIX: All activation badges now have the same compact styling
         return isActivated === 'Yes' 
-            ? '<span class="status-badge status-activated" style="display: inline-block; min-width: 40px; text-align: center; padding: 4px 8px; font-size: 0.85em;">Yes</span>'
-            : '<span class="status-badge status-not-activated" style="display: inline-block; min-width: 40px; text-align: center; padding: 4px 8px; font-size: 0.85em;">No</span>';
+            ? '<span class="status-badge status-activated" style="display: inline-block; min-width: 35px; text-align: center; padding: 3px 6px; font-size: 0.75em; border-radius: 10px;">Yes</span>'
+            : '<span class="status-badge status-not-activated" style="display: inline-block; min-width: 35px; text-align: center; padding: 3px 6px; font-size: 0.75em; border-radius: 10px;">No</span>';
     }
     
     function getRenewalBadge(renewalCount) {
         const count = renewalCount || 0;
-        // FIX: All renewal badges now have the same compact styling
-        return `<span class="status-badge" style="display: inline-block; min-width: 30px; text-align: center; padding: 4px 8px; font-size: 0.85em;">${count}</span>`;
+        return `<span class="status-badge" style="display: inline-block; min-width: 25px; text-align: center; padding: 3px 6px; font-size: 0.75em; border-radius: 10px;">${count}</span>`;
     }
     
     function getLicenseType(license) {
-        // FIX: Just show "MANUAL" or "STRIPE" without monthly/yearly
+        // Just show "MANUAL" or "STRIPE" without monthly/yearly
         if (license.stripeSubscriptionId && !license.isManual) {
             return 'STRIPE';
         }
@@ -624,6 +628,8 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             showNotification('Creating license...', 'info');
             
+            console.log('Sending request with days:', days, 'email:', email);
+            
             const response = await fetchWithAuth('/admin/create-license', {
                 method: 'POST',
                 body: JSON.stringify({ 
@@ -791,38 +797,36 @@ document.addEventListener('DOMContentLoaded', function() {
                 const license = response.license;
                 
                 // Calculate days left
-                const expiryDate = new Date(license.expiresAt);
-                const now = new Date();
-                const daysLeft = Math.ceil((expiryDate - now) / (1000 * 60 * 60 * 24));
+                const daysLeft = getDaysLeft(license);
                 
                 // Determine license type
                 const licenseType = getLicenseType(license);
                 
-                // Enhanced layout with consistent box heights
+                // Enhanced layout with UNIFORM box sizes
                 const modalContent = `
                     <div class="license-details">
-                        <!-- License Information - Single Line -->
+                        <!-- License Information - Single Line (ALL BOXES SAME SIZE) -->
                         <div class="detail-section">
                             <h4><i class="fas fa-key"></i> License Information</h4>
                             <div class="detail-grid single-line">
                                 <div class="detail-item">
                                     <label>License Key</label>
-                                    <div class="detail-value license-key-value full-width" title="${license.licenseKey || license.key}">
+                                    <div class="detail-value license-key-value full-width" title="${license.licenseKey || license.key}" style="min-height: 38px; display: flex; align-items: center;">
                                         ${license.licenseKey || license.key}
                                     </div>
                                 </div>
                                 <div class="detail-item">
                                     <label>Status</label>
-                                    <div class="detail-value detail-value-uniform" style="min-height: 40px;">
+                                    <div class="detail-value detail-value-uniform" style="min-height: 38px; display: flex; align-items: center;">
                                         ${getStatusBadge(license.isActive ? (daysLeft > 0 ? 'Active' : 'Expired') : 'Inactive')}
                                     </div>
                                 </div>
                                 <div class="detail-item">
                                     <label>License Type</label>
-                                    <div class="detail-value detail-value-uniform" style="min-height: 40px;">
+                                    <div class="detail-value detail-value-uniform" style="min-height: 38px; display: flex; align-items: center;">
                                         ${licenseType === 'STRIPE' ? 
-                                            '<span class="status-badge" style="background: rgba(59, 130, 246, 0.1); color: #3b82f6; padding: 6px 12px; font-size: 0.9em;">STRIPE</span>' : 
-                                            '<span class="status-badge" style="background: rgba(245, 158, 11, 0.1); color: #f59e0b; padding: 6px 12px; font-size: 0.9em;">MANUAL</span>'}
+                                            '<span class="status-badge" style="background: rgba(59, 130, 246, 0.1); color: #3b82f6; padding: 4px 10px; font-size: 0.8em; border-radius: 12px;">STRIPE</span>' : 
+                                            '<span class="status-badge" style="background: rgba(245, 158, 11, 0.1); color: #f59e0b; padding: 4px 10px; font-size: 0.8em; border-radius: 12px;">MANUAL</span>'}
                                     </div>
                                 </div>
                             </div>
@@ -834,11 +838,11 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="detail-grid double-line">
                                 <div class="detail-item">
                                     <label>Customer Name</label>
-                                    <div class="detail-value">${license.customerName || 'Not specified'}</div>
+                                    <div class="detail-value" style="min-height: 38px; display: flex; align-items: center;">${license.customerName || 'Not specified'}</div>
                                 </div>
                                 <div class="detail-item">
                                     <label>Email Address</label>
-                                    <div class="detail-value">${license.customerEmail}</div>
+                                    <div class="detail-value" style="min-height: 38px; display: flex; align-items: center;">${license.customerEmail}</div>
                                 </div>
                             </div>
                         </div>
@@ -846,21 +850,21 @@ document.addEventListener('DOMContentLoaded', function() {
                         <!-- Subscription Details - Single Line -->
                         <div class="detail-section">
                             <h4><i class="fas fa-sync-alt"></i> Subscription Details</h4>
-                            <div class="detail-grid single-line uniform-height">
+                            <div class="detail-grid single-line">
                                 <div class="detail-item">
                                     <label>Duration</label>
-                                    <div class="detail-value detail-value-uniform" style="min-height: 40px;">
+                                    <div class="detail-value detail-value-uniform" style="min-height: 38px; display: flex; align-items: center;">
                                         ${license.days || 30} days (${license.plan || 'monthly'})
                                     </div>
                                 </div>
                                 <div class="detail-item">
                                     <label>Renewals</label>
-                                    <div class="detail-value detail-value-uniform" style="min-height: 40px;">${getRenewalBadge(license.renewalCount)}</div>
+                                    <div class="detail-value detail-value-uniform" style="min-height: 38px; display: flex; align-items: center;">${getRenewalBadge(license.renewalCount)}</div>
                                 </div>
                                 ${license.lastRenewalAt ? `
                                 <div class="detail-item">
                                     <label>Last Renewal</label>
-                                    <div class="detail-value detail-value-uniform" style="min-height: 40px;">${formatDate(license.lastRenewalAt)}</div>
+                                    <div class="detail-value detail-value-uniform" style="min-height: 38px; display: flex; align-items: center;">${formatDate(license.lastRenewalAt)}</div>
                                 </div>` : ''}
                             </div>
                         </div>
@@ -871,17 +875,17 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="detail-grid single-line">
                                 <div class="detail-item">
                                     <label>Created On</label>
-                                    <div class="detail-value">${formatDate(license.createdAt)}</div>
+                                    <div class="detail-value" style="min-height: 38px; display: flex; align-items: center;">${formatDate(license.createdAt)}</div>
                                 </div>
                                 <div class="detail-item">
                                     <label>Expires On</label>
-                                    <div class="detail-value">${formatDate(license.expiresAt)}</div>
+                                    <div class="detail-value" style="min-height: 38px; display: flex; align-items: center;">${formatDate(license.expiresAt)}</div>
                                 </div>
                                 ${daysLeft > 0 && license.isActive ? `
                                 <div class="detail-item">
                                     <label>Days Remaining</label>
-                                    <div class="detail-value detail-value-uniform" style="min-height: 40px;">
-                                        <span class="status-badge status-active" style="min-width: 80px; padding: 6px 12px;">${daysLeft} days</span>
+                                    <div class="detail-value detail-value-uniform" style="min-height: 38px; display: flex; align-items: center;">
+                                        <span class="status-badge status-active" style="min-width: 70px; padding: 4px 10px; font-size: 0.8em;">${daysLeft} days</span>
                                     </div>
                                 </div>` : ''}
                             </div>
@@ -893,16 +897,16 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="detail-grid single-line">
                                 <div class="detail-item">
                                     <label>Activated</label>
-                                    <div class="detail-value detail-value-uniform" style="min-height: 40px;">${getActivationBadge(license.deviceId && license.deviceId.trim() !== '' ? 'Yes' : 'No')}</div>
+                                    <div class="detail-value detail-value-uniform" style="min-height: 38px; display: flex; align-items: center;">${getActivationBadge(license.deviceId && license.deviceId.trim() !== '' ? 'Yes' : 'No')}</div>
                                 </div>
                                 ${license.deviceId ? `
                                 <div class="detail-item">
                                     <label>Device</label>
-                                    <div class="detail-value detail-value-uniform" style="min-height: 40px;">${license.deviceName || 'Not specified'}</div>
+                                    <div class="detail-value detail-value-uniform" style="min-height: 38px; display: flex; align-items: center;">${license.deviceName || 'Not specified'}</div>
                                 </div>` : ''}
                                 <div class="detail-item">
                                     <label>Validations</label>
-                                    <div class="detail-value detail-value-uniform" style="min-height: 40px;">${license.validationCount || 0} times</div>
+                                    <div class="detail-value detail-value-uniform" style="min-height: 38px; display: flex; align-items: center;">${license.validationCount || 0} times</div>
                                 </div>
                             </div>
                         </div>
@@ -914,7 +918,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="detail-grid single-line">
                                 <div class="detail-item">
                                     <label>Last Validated</label>
-                                    <div class="detail-value detail-value-uniform" style="min-height: 40px;">${formatDate(license.lastValidated)}</div>
+                                    <div class="detail-value detail-value-uniform" style="min-height: 38px; display: flex; align-items: center;">${formatDate(license.lastValidated)}</div>
                                 </div>
                             </div>
                         </div>` : ''}
@@ -927,20 +931,20 @@ document.addEventListener('DOMContentLoaded', function() {
                                 ${license.stripeCustomerId ? `
                                 <div class="detail-item">
                                     <label>Customer ID</label>
-                                    <div class="detail-value small-text" title="${license.stripeCustomerId}">
+                                    <div class="detail-value small-text" title="${license.stripeCustomerId}" style="min-height: 38px; display: flex; align-items: center;">
                                         ${truncateText(license.stripeCustomerId, 25)}
                                     </div>
                                 </div>` : ''}
                                 ${license.stripeSubscriptionId ? `
                                 <div class="detail-item">
                                     <label>Subscription ID</label>
-                                    <div class="detail-value small-text" title="${license.stripeSubscriptionId}">
+                                    <div class="detail-value small-text" title="${license.stripeSubscriptionId}" style="min-height: 38px; display: flex; align-items: center;">
                                         ${truncateText(license.stripeSubscriptionId, 25)}
                                     </div>
                                 </div>` : ''}
                                 <div class="detail-item">
                                     <label>Payment Method</label>
-                                    <div class="detail-value detail-value-uniform" style="min-height: 40px;">Stripe</div>
+                                    <div class="detail-value detail-value-uniform" style="min-height: 38px; display: flex; align-items: center;">Stripe</div>
                                 </div>
                             </div>
                         </div>` : ''}
@@ -952,8 +956,8 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="detail-grid single-line">
                                 <div class="detail-item">
                                     <label>License Value</label>
-                                    <div class="detail-value detail-value-uniform" style="min-height: 40px;">
-                                        $${((license.renewalCount || 0) + 1) * (license.plan === 'yearly' || license.days === 365 ? CONFIG.YEARLY_PRICE : CONFIG.MONTHLY_PRICE)}
+                                    <div class="detail-value detail-value-uniform" style="min-height: 38px; display: flex; align-items: center;">
+                                        $${((license.renewalCount || 0) + 1) * (license.plan === 'yearly' || license.days === 365 ? CONFIG.YEARLY_PRICE : CONFIG.MONTHLY_PRICE).toFixed(2)}
                                     </div>
                                 </div>
                             </div>
@@ -1007,6 +1011,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const activationStatus = getActivationStatus(license);
             const isStripeLicense = license.stripeSubscriptionId && !license.isManual;
             const renewalCount = license.renewalCount || 0;
+            const daysLeft = getDaysLeft(license);
             
             // Determine delete button color
             let deleteBtnClass = 'btn-stripe-delete';
@@ -1022,6 +1027,12 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Format expiration date (simple date only, no time)
             const expiryDate = formatSimpleDate(license.expiresAt);
+            
+            // Determine days left color
+            let daysLeftColor = 'var(--text-secondary)';
+            if (daysLeft > 30) daysLeftColor = 'var(--accent-green)';
+            else if (daysLeft > 7) daysLeftColor = 'var(--accent-orange)';
+            else if (daysLeft >= 0) daysLeftColor = 'var(--accent-red)';
             
             html += `
                 <tr>
@@ -1047,6 +1058,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     <td style="min-width: 40px;">${getRenewalBadge(renewalCount)}</td>
                     <td style="min-width: 100px;">
                         <div class="expiry-cell single-line compact">${expiryDate}</div>
+                        ${daysLeft >= 0 ? `
+                        <div class="days-left" style="color: ${daysLeftColor}; font-size: 0.75em; font-weight: 600; margin-top: 3px;">
+                            ${formatDaysLeftDisplay(daysLeft)}
+                        </div>` : ''}
                     </td>
                     <td>
                         <div class="action-buttons compact">
@@ -1604,13 +1619,12 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
         
-        // Duration options
-        const durationOptions = document.querySelectorAll('.duration-option');
-        if (durationOptions) {
-            durationOptions.forEach(option => {
+        // Duration options - FIXED: Properly track selected duration
+        if (elements.durationOptions) {
+            elements.durationOptions.forEach(option => {
                 option.addEventListener('click', function() {
                     // Remove selected class from all options
-                    durationOptions.forEach(o => o.classList.remove('selected'));
+                    elements.durationOptions.forEach(o => o.classList.remove('selected'));
                     // Add selected class to clicked option
                     this.classList.add('selected');
                     state.selectedDuration = parseInt(this.dataset.days);
@@ -1619,7 +1633,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
         
-        // Generate license key
+        // Generate license key - FIXED: Use correct duration
         if (elements.generateKeyBtn) {
             elements.generateKeyBtn.addEventListener('click', async function() {
                 const email = elements.customerEmail ? elements.customerEmail.value.trim() : '';
@@ -1627,6 +1641,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const days = state.selectedDuration;
                 
                 console.log('Creating license with duration:', days, 'days');
+                console.log('Current state selectedDuration:', state.selectedDuration);
                 
                 if (!email) {
                     showNotification('Please enter customer email', 'error');
@@ -1650,7 +1665,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             // Update the email button to send for this specific license
                             sendEmailBtn.onclick = async () => {
                                 try {
-                                    await sendLicenseEmail(license.key, email, name || email.split('@')[0]);
+                                    await sendLicenseEmail(license.key || license.licenseKey, email, name || email.split('@')[0]);
                                 } catch (error) {
                                     // Error already shown
                                 }

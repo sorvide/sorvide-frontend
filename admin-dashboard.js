@@ -30,7 +30,7 @@ document.addEventListener('DOMContentLoaded', function() {
         isStripeLicenseToDelete: false,
         currentLicensePage: 1,
         currentActivityPage: 1,
-        licensesPerPage: 10,
+        licensesPerPage: 12,
         activitiesPerPage: 5,
         totalLicensePages: 1,
         totalActivityPages: 1,

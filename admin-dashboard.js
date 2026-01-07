@@ -176,7 +176,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // FIX: Status badges with proper colors
         const badgeClass = badges[status] || 'status-inactive';
-        return `<span class="status-badge ${badgeClass}" style="display: inline-block; min-width: 70px; text-align: center; padding: 4px 10px; font-size: 0.85em;">${status}</span>`;
+        return `<span class="status-badge ${badgeClass}" style="display: inline-block; min-width: 65px; text-align: center; padding: 4px 10px; font-size: 0.85em;">${status}</span>`;
     }
     
     function getActivationBadge(isActivated) {

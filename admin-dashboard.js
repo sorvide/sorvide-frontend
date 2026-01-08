@@ -191,8 +191,13 @@ document.addEventListener('DOMContentLoaded', function() {
             : '<span class="status-badge status-not-activated" style="display: inline-block; min-width: 35px; text-align: center; padding: 3px 6px; font-size: 0.75em; border-radius: 10px;">No</span>';
     }
     
-    function getRenewalBadge(renewalCount) {
-        const count = renewalCount || 0;
+    function getRenewalDisplay(license) {
+        // Manual licenses show "N/A", Stripe licenses show count
+        if (license.isManual) {
+            return '<span class="status-badge" style="display: inline-block; min-width: 30px; text-align: center; padding: 3px 6px; font-size: 0.75em; border-radius: 10px; background: rgba(107, 114, 128, 0.1); color: #6b7280;">N/A</span>';
+        }
+        
+        const count = license.renewalCount || 0;
         return `<span class="status-badge" style="display: inline-block; min-width: 25px; text-align: center; padding: 3px 6px; font-size: 0.75em; border-radius: 10px;">${count}</span>`;
     }
     
@@ -224,37 +229,29 @@ document.addEventListener('DOMContentLoaded', function() {
             const isStripeLicense = license.stripeSubscriptionId && !license.isManual;
             
             if (isStripeLicense) {
-                if (license.plan === 'monthly' || license.days === 30) {
-                    // Every NEW Stripe monthly license contributes exactly 1 month of revenue
-                    // Renewals should only count if they actually happened (renewalCount > 0)
-                    const renewals = license.renewalCount || 0;
-                    
-                    // Initial purchase: $9.99
-                    lifetimeRevenue += CONFIG.MONTHLY_PRICE;
-                    
-                    // Only add renewal revenue if renewalCount > 0
-                    if (renewals > 0) {
-                        lifetimeRevenue += renewals * CONFIG.MONTHLY_PRICE;
-                        totalRenewals += renewals;
-                    }
-                    
-                    // For monthly revenue: count active subscriptions only
-                    if (license.isActive) {
-                        const expiryDate = new Date(license.expiresAt);
-                        const now = new Date();
-                        if (expiryDate > now) {
-                            monthlyRevenue += CONFIG.MONTHLY_PRICE;
-                        }
-                    }
-                } else if (license.plan === 'yearly' || license.days === 365) {
-                    // Yearly Stripe licenses - one-time payment
-                    lifetimeRevenue += CONFIG.YEARLY_PRICE;
-                    // Yearly licenses don't contribute to monthly revenue
+                // For Stripe licenses: count each payment (initial + renewals)
+                const initialPayment = CONFIG.MONTHLY_PRICE;
+                const renewals = license.renewalCount || 0;
+                
+                // Initial purchase
+                lifetimeRevenue += initialPayment;
+                
+                // Renewals (if any)
+                if (renewals > 0) {
+                    lifetimeRevenue += renewals * CONFIG.MONTHLY_PRICE;
+                    totalRenewals += renewals;
                 }
-            } else {
-                // Manual licenses (trial, 30-day manual, yearly manual) - DO NOT COUNT for revenue
-                console.log('Manual license excluded from revenue:', license.licenseKey, 'Type:', license.plan || `${license.days} days`);
+                
+                // For monthly revenue: count active subscriptions only
+                if (license.isActive) {
+                    const expiryDate = new Date(license.expiresAt);
+                    const now = new Date();
+                    if (expiryDate > now) {
+                        monthlyRevenue += CONFIG.MONTHLY_PRICE;
+                    }
+                }
             }
+            // Manual licenses are NOT counted for revenue
         });
         
         state.monthlyRevenue = parseFloat(monthlyRevenue.toFixed(2));
@@ -426,8 +423,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 isManual: false,
                 stripeSubscriptionId: 'sub_123456789',
                 stripeCustomerId: 'cus_123456789',
-                renewalCount: 2,
-                lastRenewalAt: new Date(Date.now() - 86400000 * 15).toISOString()
+                renewalCount: 0, // New license should be 0
+                lastRenewalAt: null
             },
             {
                 licenseKey: 'TRIAL-SORV-9876-5432-ABCD-EF01',
@@ -518,9 +515,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 state.licenses = data.licenses || [];
                 state.filteredLicenses = [...state.licenses];
                 
-                // FIX: Ensure renewalCount is 0 for new licenses (not 1)
+                // FIX: Ensure renewalCount is 0 for new licenses and manual licenses
                 state.licenses.forEach(license => {
-                    if (license.renewalCount === 1 && !license.lastRenewalAt) {
+                    if (license.isManual) {
+                        // Manual licenses should have renewalCount = 0 (but display N/A)
+                        license.renewalCount = 0;
+                    } else if (license.renewalCount === 1 && !license.lastRenewalAt) {
                         // If renewalCount is 1 but no lastRenewalAt, it's a new purchase
                         // Reset to 0
                         license.renewalCount = 0;
@@ -889,7 +889,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 </div>
                                 <div class="detail-item">
                                     <label>Renewals</label>
-                                    <div class="detail-value detail-value-uniform" style="min-height: 38px; display: flex; align-items: center;">${getRenewalBadge(license.renewalCount)}</div>
+                                    <div class="detail-value detail-value-uniform" style="min-height: 38px; display: flex; align-items: center;">${getRenewalDisplay(license)}</div>
                                 </div>
                                 ${license.lastRenewalAt ? `
                                 <div class="detail-item">
@@ -987,7 +987,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <div class="detail-item">
                                     <label>License Value</label>
                                     <div class="detail-value detail-value-uniform" style="min-height: 38px; display: flex; align-items: center;">
-                                        $${((license.renewalCount || 0) + 1) * (license.plan === 'yearly' || license.days === 365 ? CONFIG.YEARLY_PRICE : CONFIG.MONTHLY_PRICE).toFixed(2)}
+                                        $${((license.renewalCount || 0) + 1) * CONFIG.MONTHLY_PRICE.toFixed(2)}
                                     </div>
                                 </div>
                             </div>
@@ -1040,7 +1040,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const status = getLicenseStatus(license);
             const activationStatus = getActivationStatus(license);
             const isStripeLicense = license.stripeSubscriptionId && !license.isManual;
-            const renewalCount = license.renewalCount || 0;
+            const renewalDisplay = getRenewalDisplay(license);
             const daysLeft = getDaysLeft(license);
             
             // Determine delete button color
@@ -1085,7 +1085,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     </td>
                     <td style="min-width: 80px;">${getStatusBadge(status)}</td>
                     <td style="min-width: 60px;">${getActivationBadge(activationStatus)}</td>
-                    <td style="min-width: 40px;">${getRenewalBadge(renewalCount)}</td>
+                    <td style="min-width: 50px;">${renewalDisplay}</td>
                     <td style="min-width: 100px;">
                         <div class="expiry-cell single-line compact">${expiryDate}</div>
                         ${daysLeft >= 0 ? `

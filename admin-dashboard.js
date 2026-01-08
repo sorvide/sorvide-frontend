@@ -1,4 +1,4 @@
-// admin-dashboard.js - COMPLETE with fixes for renewals, emails, and test email feature
+// admin-dashboard.js - COMPLETE with fixes for date handling, renewals, emails, and test email feature
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🔧 Loading Sorvide Admin Dashboard...');
@@ -104,9 +104,18 @@ document.addEventListener('DOMContentLoaded', function() {
         }, duration);
     }
     
+    // FIXED: Better date handling to prevent "Invalid Date"
     function formatDate(dateString) {
         try {
+            if (!dateString) return 'Not set';
+            
             const date = new Date(dateString);
+            
+            // Check if date is valid
+            if (isNaN(date.getTime())) {
+                return 'Invalid date';
+            }
+            
             return date.toLocaleDateString('en-US', {
                 month: 'short',
                 day: 'numeric',
@@ -121,9 +130,18 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
+    // FIXED: Better date validation
     function formatSimpleDate(dateString) {
         try {
+            if (!dateString) return 'Not set';
+            
             const date = new Date(dateString);
+            
+            // Check if date is valid
+            if (isNaN(date.getTime())) {
+                return 'Invalid date';
+            }
+            
             return date.toLocaleDateString('en-US', {
                 month: 'short',
                 day: 'numeric',
@@ -134,12 +152,19 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
+    // FIXED: Better date validation for days left calculation
     function getDaysLeft(license) {
         if (!license.isActive) return -1;
         
         try {
             const expiry = new Date(license.expiresAt);
             const now = new Date();
+            
+            // Check if expiry date is valid
+            if (isNaN(expiry.getTime())) {
+                return -1;
+            }
+            
             const daysLeft = Math.ceil((expiry - now) / (1000 * 60 * 60 * 24));
             return daysLeft;
         } catch (e) {
@@ -154,12 +179,18 @@ document.addEventListener('DOMContentLoaded', function() {
         return `${daysLeft}d left`;
     }
     
+    // FIXED: Better status detection with date validation
     function getLicenseStatus(license) {
         if (!license.isActive) return 'Inactive';
         
         try {
             const expiryDate = new Date(license.expiresAt);
             const now = new Date();
+            
+            // Check if date is valid
+            if (isNaN(expiryDate.getTime())) {
+                return 'Unknown';
+            }
             
             if (expiryDate < now) return 'Expired';
             return 'Active';
@@ -194,11 +225,11 @@ document.addEventListener('DOMContentLoaded', function() {
     function getRenewalDisplay(license) {
         // Manual licenses show "N/A", Stripe licenses show count
         if (license.isManual) {
-            return '<span class="status-badge" style="display: inline-block; min-width: 30px; text-align: center; padding: 3px 6px; font-size: 0.75em; border-radius: 10px; background: rgba(107, 114, 128, 0.1); color: #6b7280;">N/A</span>';
+            return '<span class="status-badge" style="display: inline-block; min-width: 30px; text-align: center; padding: 3px 6px; font-size: 0.75em; border-radius: 12px; background: rgba(107, 114, 128, 0.1); color: #6b7280;">N/A</span>';
         }
         
         const count = license.renewalCount || 0;
-        return `<span class="status-badge" style="display: inline-block; min-width: 25px; text-align: center; padding: 3px 6px; font-size: 0.75em; border-radius: 10px;">${count}</span>`;
+        return `<span class="status-badge" style="display: inline-block; min-width: 25px; text-align: center; padding: 3px 6px; font-size: 0.75em; border-radius: 12px;">${count}</span>`;
     }
     
     function getLicenseType(license) {
@@ -215,7 +246,7 @@ document.addEventListener('DOMContentLoaded', function() {
         return text.substring(0, maxLength - 3) + '...';
     }
     
-    // ========== REVENUE CALCULATIONS (FIXED) ==========
+    // FIXED: Better revenue calculation with validation
     function calculateLifetimeRevenue() {
         let monthlyRevenue = 0;
         let lifetimeRevenue = 0;
@@ -244,10 +275,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // For monthly revenue: count active subscriptions only
                 if (license.isActive) {
-                    const expiryDate = new Date(license.expiresAt);
-                    const now = new Date();
-                    if (expiryDate > now) {
-                        monthlyRevenue += CONFIG.MONTHLY_PRICE;
+                    try {
+                        const expiryDate = new Date(license.expiresAt);
+                        const now = new Date();
+                        if (!isNaN(expiryDate.getTime()) && expiryDate > now) {
+                            monthlyRevenue += CONFIG.MONTHLY_PRICE;
+                        }
+                    } catch (e) {
+                        console.warn('Invalid expiry date for license:', license.licenseKey);
                     }
                 }
             }
@@ -423,8 +458,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 isManual: false,
                 stripeSubscriptionId: 'sub_123456789',
                 stripeCustomerId: 'cus_123456789',
-                renewalCount: 0, // New license should be 0
-                lastRenewalAt: null
+                renewalCount: 2,
+                lastRenewalAt: new Date(Date.now() - 86400000 * 15).toISOString()
             },
             {
                 licenseKey: 'TRIAL-SORV-9876-5432-ABCD-EF01',
@@ -488,7 +523,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const activeCount = state.licenses.filter(l => {
             if (!l.isActive) return false;
             try {
-                return new Date(l.expiresAt) > new Date();
+                const expiry = new Date(l.expiresAt);
+                return !isNaN(expiry.getTime()) && expiry > new Date();
             } catch (e) {
                 return false;
             }
@@ -515,13 +551,32 @@ document.addEventListener('DOMContentLoaded', function() {
                 state.licenses = data.licenses || [];
                 state.filteredLicenses = [...state.licenses];
                 
-                // FIX: Ensure renewalCount is 0 for new licenses and manual licenses
+                // FIXED: Better date validation for licenses
                 state.licenses.forEach(license => {
+                    // Validate date formats
+                    if (license.expiresAt) {
+                        const date = new Date(license.expiresAt);
+                        if (isNaN(date.getTime())) {
+                            console.warn('Invalid expiry date for license:', license.licenseKey);
+                            // Try to fix it by adding 30 days from creation
+                            try {
+                                const created = new Date(license.createdAt);
+                                if (!isNaN(created.getTime())) {
+                                    created.setDate(created.getDate() + 30);
+                                    license.expiresAt = created.toISOString();
+                                    console.log('Fixed expiry date for:', license.licenseKey);
+                                }
+                            } catch (e) {
+                                // Could not fix
+                            }
+                        }
+                    }
+                    
                     if (license.isManual) {
                         // Manual licenses should have renewalCount = 0 (but display N/A)
                         license.renewalCount = 0;
                     } else if (license.renewalCount === 1 && !license.lastRenewalAt) {
-                        // If renewalCount is 1 but no lastRenewalAt, it's a new purchase
+                        // If renewalCount is 1 but no lastRenewalAt, it's likely a new purchase
                         // Reset to 0
                         license.renewalCount = 0;
                         console.log('Fixed renewalCount for new license:', license.licenseKey, 'set to 0');
@@ -537,7 +592,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 const activeCount = state.licenses.filter(l => {
                     if (!l.isActive) return false;
                     try {
-                        return new Date(l.expiresAt) > new Date();
+                        const expiry = new Date(l.expiresAt);
+                        return !isNaN(expiry.getTime()) && expiry > new Date();
                     } catch (e) {
                         return false;
                     }
@@ -644,7 +700,20 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             
             if (response.success) {
-                // FIX: When creating a 30-day manual license, it should NOT affect revenue
+                // FIXED: Ensure the license has valid dates
+                const license = response.license;
+                
+                // Validate dates in the response
+                if (license.expiresAt) {
+                    const expiry = new Date(license.expiresAt);
+                    if (isNaN(expiry.getTime())) {
+                        console.warn('Invalid expiry date in response, fixing...');
+                        const created = new Date(license.createdAt || Date.now());
+                        created.setDate(created.getDate() + days);
+                        license.expiresAt = created.toISOString();
+                    }
+                }
+                
                 let message = `License created successfully for ${days} days!`;
                 if (days === 30) {
                     message += ' (Manual license - does not affect revenue)';
@@ -653,7 +722,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Show the generated key
                 if (elements.generatedKey) {
-                    elements.generatedKey.textContent = response.license.key || response.license.licenseKey;
+                    elements.generatedKey.textContent = license.key || license.licenseKey;
                 }
                 if (elements.generatedKeySection) {
                     elements.generatedKeySection.style.display = 'block';
@@ -670,7 +739,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Recalculate revenue (manual licenses should not affect revenue)
                 calculateLifetimeRevenue();
                 
-                return response.license;
+                return license;
             } else {
                 throw new Error(response.error || 'Failed to create license');
             }
@@ -826,7 +895,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (response.success) {
                 const license = response.license;
                 
-                // Calculate days left
+                // FIXED: Validate dates before displaying
                 const daysLeft = getDaysLeft(license);
                 
                 // Determine license type
@@ -987,7 +1056,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <div class="detail-item">
                                     <label>License Value</label>
                                     <div class="detail-value detail-value-uniform" style="min-height: 38px; display: flex; align-items: center;">
-                                        $${((license.renewalCount || 0) + 1) * CONFIG.MONTHLY_PRICE.toFixed(2)}
+                                        $${(((license.renewalCount || 0) + 1) * CONFIG.MONTHLY_PRICE).toFixed(2)}
                                     </div>
                                 </div>
                             </div>

@@ -432,7 +432,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
         } catch (error) {
             console.error('Dashboard data load error:', error);
-            if (!error.message.includes('Unauthorized')) {
+            if (!error.message.includes('Unauthorized') && !state.licenses.length) {
                 loadSampleData();
                 showNotification('Using sample data (backend unavailable)', 'warning');
             }

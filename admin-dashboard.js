@@ -1,4 +1,4 @@
-// admin-dashboard.js - COMPLETE with fixes for date handling, renewals, emails, and test email feature
+// admin-dashboard.js - COMPLETE with fixes for date handling, renewals, emails, and REAL-TIME day counter updates
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🔧 Loading Sorvide Admin Dashboard...');
@@ -170,6 +170,41 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (e) {
             return -1;
         }
+    }
+    
+    // ========== REAL-TIME UPDATES ==========
+    function updateTimeBasedDisplays() {
+        console.log('🔄 Updating time-based displays...');
+        
+        // Update days left for all displayed licenses
+        document.querySelectorAll('.days-left').forEach(element => {
+            const licenseKey = element.closest('tr')?.querySelector('.license-key-display')?.textContent?.trim();
+            if (licenseKey) {
+                const license = state.licenses.find(l => l.licenseKey === licenseKey);
+                if (license) {
+                    const daysLeft = getDaysLeft(license);
+                    if (daysLeft >= 0) {
+                        element.textContent = formatDaysLeftDisplay(daysLeft);
+                        
+                        // Update color based on days left
+                        let daysLeftColor = 'var(--text-secondary)';
+                        if (daysLeft > 30) daysLeftColor = 'var(--accent-green)';
+                        else if (daysLeft > 7) daysLeftColor = 'var(--accent-orange)';
+                        else if (daysLeft >= 0) daysLeftColor = 'var(--accent-red)';
+                        
+                        element.style.color = daysLeftColor;
+                    }
+                }
+            }
+        });
+        
+        // Update the "Last X minutes" timestamps in activity
+        document.querySelectorAll('.activity-time').forEach(element => {
+            const timestampText = element.textContent;
+            if (timestampText.includes('ago')) {
+                // This would need more complex logic to update relative times
+            }
+        });
     }
     
     function formatDaysLeftDisplay(daysLeft) {
@@ -430,6 +465,9 @@ document.addEventListener('DOMContentLoaded', function() {
             
             showNotification('Dashboard data loaded successfully', 'success');
             
+            // NEW: Update time-based displays after loading data
+            updateTimeBasedDisplays();
+            
         } catch (error) {
             console.error('Dashboard data load error:', error);
             if (!error.message.includes('Unauthorized') && !state.licenses.length) {
@@ -536,6 +574,9 @@ document.addEventListener('DOMContentLoaded', function() {
         renderLicensePagination();
         renderRecentActivity();
         renderActivityPagination();
+        
+        // NEW: Update time-based displays for sample data
+        updateTimeBasedDisplays();
     }
     
     async function loadLicenses() {
@@ -599,30 +640,30 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 }).length;
                 
-                if (elements.activeLicenses) {
-                    elements.activeLicenses.textContent = activeCount.toLocaleString();
-                }
-                
-                // Calculate total pages
-                state.totalLicensePages = Math.ceil(state.filteredLicenses.length / state.licensesPerPage);
-                if (state.totalLicensePages === 0) state.totalLicensePages = 1;
-                
-                // Reset to page 1 if current page is out of bounds
-                if (state.currentLicensePage > state.totalLicensePages) {
-                    state.currentLicensePage = 1;
-                }
-                
-                renderLicenseTable();
-                renderLicensePagination();
-            } else {
-                throw new Error(data.error || 'Failed to load licenses');
-            }
-        } catch (error) {
-            console.error('License load error:', error);
-            if (!error.message.includes('Unauthorized') && !state.licenses.length) {
-                loadSampleData();
-            }
+        if (elements.activeLicenses) {
+            elements.activeLicenses.textContent = activeCount.toLocaleString();
         }
+        
+        // Calculate total pages
+        state.totalLicensePages = Math.ceil(state.filteredLicenses.length / state.licensesPerPage);
+        if (state.totalLicensePages === 0) state.totalLicensePages = 1;
+        
+        // Reset to page 1 if current page is out of bounds
+        if (state.currentLicensePage > state.totalLicensePages) {
+            state.currentLicensePage = 1;
+        }
+        
+        renderLicenseTable();
+        renderLicensePagination();
+    } else {
+        throw new Error(data.error || 'Failed to load licenses');
+    }
+} catch (error) {
+    console.error('License load error:', error);
+    if (!error.message.includes('Unauthorized') && !state.licenses.length) {
+        loadSampleData();
+    }
+}
     }
     
     async function loadRecentActivity() {
@@ -1207,6 +1248,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 showDeleteModal(licenseKey, isStripeLicense);
             });
         });
+        
+        // NEW: Update days left displays immediately after rendering
+        updateTimeBasedDisplays();
     }
     
     function renderLicensePagination() {
@@ -2045,6 +2089,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         console.log('✅ Admin Dashboard initialized');
+        
+        // NEW: Start time-based updates interval
+        setInterval(updateTimeBasedDisplays, 60000); // Every minute
+        console.log('✅ Time-based updates interval started (every 60 seconds)');
     }
     
     // Start the admin dashboard

@@ -152,25 +152,28 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // FIXED: Better date validation for days left calculation
-    function getDaysLeft(license) {
-        if (!license.isActive) return -1;
+// FIXED: Better date validation for days left calculation
+function getDaysLeft(license) {
+    if (!license.isActive) return -1;
+    
+    try {
+        const expiry = new Date(license.expiresAt);
+        const now = new Date();
         
-        try {
-            const expiry = new Date(license.expiresAt);
-            const now = new Date();
-            
-            // Check if expiry date is valid
-            if (isNaN(expiry.getTime())) {
-                return -1;
-            }
-            
-            const daysLeft = Math.ceil((expiry - now) / (1000 * 60 * 60 * 24));
-            return daysLeft;
-        } catch (e) {
+        // Check if expiry date is valid
+        if (isNaN(expiry.getTime())) {
             return -1;
         }
+        
+        // FIXED: Use Math.floor() to get correct whole days
+        const daysLeft = Math.floor((expiry - now) / (1000 * 60 * 60 * 24));
+        
+        // Ensure we don't return negative for already expired
+        return Math.max(daysLeft, 0);
+    } catch (e) {
+        return -1;
     }
+}
     
     // ========== REAL-TIME UPDATES ==========
     function updateTimeBasedDisplays() {

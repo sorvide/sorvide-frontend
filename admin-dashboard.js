@@ -1,4 +1,4 @@
-// admin-dashboard.js - COMPLETE with fixes for date handling, renewals, emails, and REAL-TIME day counter updates
+// admin-dashboard.js - COMPLETE with FIXED date handling and accurate days left calculation
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🔧 Loading Sorvide Admin Dashboard...');
@@ -36,7 +36,8 @@ document.addEventListener('DOMContentLoaded', function() {
         totalActivityPages: 1,
         monthlyRevenue: 0,
         lifetimeRevenue: 0,
-        totalRenewals: 0
+        totalRenewals: 0,
+        updateInterval: null
     };
     
     // ========== DOM ELEMENTS ==========
@@ -104,7 +105,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }, duration);
     }
     
-    // FIXED: Better date handling to prevent "Invalid Date"
+    // FIXED: Accurate timezone-aware date formatting
     function formatDate(dateString) {
         try {
             if (!dateString) return 'Not set';
@@ -116,21 +117,32 @@ document.addEventListener('DOMContentLoaded', function() {
                 return 'Invalid date';
             }
             
-            return date.toLocaleDateString('en-US', {
+            // Get timezone
+            const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            
+            // Format date part
+            const datePart = date.toLocaleDateString('en-US', {
                 month: 'short',
                 day: 'numeric',
-                year: 'numeric'
-            }) + ', ' + date.toLocaleTimeString('en-US', {
+                year: 'numeric',
+                timeZone: timeZone
+            });
+            
+            // Format time part
+            const timePart = date.toLocaleTimeString('en-US', {
                 hour: 'numeric',
                 minute: '2-digit',
-                hour12: true
+                hour12: true,
+                timeZone: timeZone
             }).replace(':00', '').replace(' AM', 'am').replace(' PM', 'pm');
+            
+            return `${datePart}, ${timePart}`;
         } catch (e) {
             return 'Invalid date';
         }
     }
     
-    // FIXED: Better date validation
+    // FIXED: Simple date format with timezone
     function formatSimpleDate(dateString) {
         try {
             if (!dateString) return 'Not set';
@@ -142,38 +154,48 @@ document.addEventListener('DOMContentLoaded', function() {
                 return 'Invalid date';
             }
             
+            // Use local timezone
+            const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
             return date.toLocaleDateString('en-US', {
                 month: 'short',
                 day: 'numeric',
-                year: 'numeric'
+                year: 'numeric',
+                timeZone: timeZone
             });
         } catch (e) {
             return 'Invalid date';
         }
     }
     
-// FIXED: Better date validation for days left calculation
-function getDaysLeft(license) {
-    if (!license.isActive) return -1;
-    
-    try {
-        const expiry = new Date(license.expiresAt);
-        const now = new Date();
+    // FIXED: ACCURATE days left calculation with proper timezone handling
+    function getDaysLeft(license) {
+        if (!license.isActive) return -1;
         
-        // Check if expiry date is valid
-        if (isNaN(expiry.getTime())) {
+        try {
+            const expiry = new Date(license.expiresAt);
+            const now = new Date();
+            
+            // Check if expiry date is valid
+            if (isNaN(expiry.getTime())) {
+                return -1;
+            }
+            
+            // IMPORTANT: Reset both dates to midnight in local timezone
+            // This ensures we calculate whole days correctly
+            const expiryLocal = new Date(expiry.getFullYear(), expiry.getMonth(), expiry.getDate());
+            const nowLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            
+            // Calculate difference in days
+            const timeDiff = expiryLocal.getTime() - nowLocal.getTime();
+            const daysLeft = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+            
+            // Return 0 if expired today or in the past
+            return Math.max(daysLeft, 0);
+        } catch (e) {
+            console.error('Error calculating days left:', e);
             return -1;
         }
-        
-        // FIXED: Use Math.floor() to get correct whole days
-        const daysLeft = Math.floor((expiry - now) / (1000 * 60 * 60 * 24));
-        
-        // Ensure we don't return negative for already expired
-        return Math.max(daysLeft, 0);
-    } catch (e) {
-        return -1;
     }
-}
     
     // ========== REAL-TIME UPDATES ==========
     function updateTimeBasedDisplays() {
@@ -196,16 +218,34 @@ function getDaysLeft(license) {
                         else if (daysLeft >= 0) daysLeftColor = 'var(--accent-red)';
                         
                         element.style.color = daysLeftColor;
+                        
+                        // Also update the expiry date cell if needed
+                        const expiryCell = element.closest('td');
+                        if (expiryCell) {
+                            const expiryDateElement = expiryCell.querySelector('.expiry-cell');
+                            if (expiryDateElement) {
+                                // Update the date to ensure it's current
+                                const expiryDate = formatSimpleDate(license.expiresAt);
+                                expiryDateElement.textContent = expiryDate;
+                            }
+                        }
                     }
                 }
             }
         });
         
-        // Update the "Last X minutes" timestamps in activity
-        document.querySelectorAll('.activity-time').forEach(element => {
-            const timestampText = element.textContent;
-            if (timestampText.includes('ago')) {
-                // This would need more complex logic to update relative times
+        // Update license status badges if needed
+        document.querySelectorAll('.status-badge').forEach(element => {
+            const licenseKey = element.closest('tr')?.querySelector('.license-key-display')?.textContent?.trim();
+            if (licenseKey) {
+                const license = state.licenses.find(l => l.licenseKey === licenseKey);
+                if (license) {
+                    const status = getLicenseStatus(license);
+                    if (element.textContent.trim() !== status) {
+                        // Update the status badge
+                        element.outerHTML = getStatusBadge(status);
+                    }
+                }
             }
         });
     }
@@ -217,7 +257,7 @@ function getDaysLeft(license) {
         return `${daysLeft}d left`;
     }
     
-    // FIXED: Better status detection with date validation
+    // FIXED: Better status detection with accurate date validation
     function getLicenseStatus(license) {
         if (!license.isActive) return 'Inactive';
         
@@ -230,7 +270,11 @@ function getDaysLeft(license) {
                 return 'Unknown';
             }
             
-            if (expiryDate < now) return 'Expired';
+            // Use days left calculation for accuracy
+            const daysLeft = getDaysLeft(license);
+            
+            if (daysLeft === 0) return 'Expires today';
+            if (daysLeft < 0 || expiryDate < now) return 'Expired';
             return 'Active';
         } catch (e) {
             return 'Unknown';
@@ -247,6 +291,7 @@ function getDaysLeft(license) {
             'Active': 'status-active',
             'Inactive': 'status-inactive',
             'Expired': 'status-expired',
+            'Expires today': 'status-expiring',
             'Unknown': 'status-inactive'
         };
         
@@ -468,20 +513,42 @@ function getDaysLeft(license) {
             
             showNotification('Dashboard data loaded successfully', 'success');
             
-            // NEW: Update time-based displays after loading data
-            updateTimeBasedDisplays();
+            // Start the time-based updates interval if not already started
+            startTimeUpdates();
             
         } catch (error) {
             console.error('Dashboard data load error:', error);
             if (!error.message.includes('Unauthorized') && !state.licenses.length) {
                 loadSampleData();
                 showNotification('Using sample data (backend unavailable)', 'warning');
+                startTimeUpdates();
             }
         }
     }
     
+    function startTimeUpdates() {
+        // Clear any existing interval
+        if (state.updateInterval) {
+            clearInterval(state.updateInterval);
+        }
+        
+        // Start new interval for time-based updates
+        state.updateInterval = setInterval(updateTimeBasedDisplays, 60000); // Every minute
+        
+        // Also update immediately
+        updateTimeBasedDisplays();
+        
+        console.log('✅ Time-based updates started (every 60 seconds)');
+    }
+    
     function loadSampleData() {
-        // Sample data for testing with mixed license types
+        // Sample data for testing with mixed license types and accurate dates
+        const now = new Date();
+        const threeDaysFromNow = new Date(now.getTime() + (3 * 24 * 60 * 60 * 1000));
+        const fifteenDaysFromNow = new Date(now.getTime() + (15 * 24 * 60 * 60 * 1000));
+        const fiveDaysFromNow = new Date(now.getTime() + (5 * 24 * 60 * 60 * 1000));
+        const twentyDaysFromNow = new Date(now.getTime() + (20 * 24 * 60 * 60 * 1000));
+        
         state.licenses = [
             {
                 licenseKey: 'MONTH-SORV-ABC1-2345-6789-DEF0',
@@ -490,7 +557,7 @@ function getDaysLeft(license) {
                 plan: 'monthly',
                 isActive: true,
                 createdAt: new Date(Date.now() - 86400000 * 45).toISOString(),
-                expiresAt: new Date(Date.now() + 86400000 * 15).toISOString(),
+                expiresAt: fifteenDaysFromNow.toISOString(),
                 deviceId: 'DEV-123456789',
                 deviceName: 'Windows Chrome v98.0',
                 lastValidated: new Date().toISOString(),
@@ -509,7 +576,7 @@ function getDaysLeft(license) {
                 plan: 'trial',
                 isActive: true,
                 createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-                expiresAt: new Date(Date.now() + 86400000 * 5).toISOString(),
+                expiresAt: fiveDaysFromNow.toISOString(),
                 deviceId: null,
                 deviceName: null,
                 lastValidated: null,
@@ -528,12 +595,32 @@ function getDaysLeft(license) {
                 plan: 'monthly',
                 isActive: true,
                 createdAt: new Date(Date.now() - 86400000 * 10).toISOString(),
-                expiresAt: new Date(Date.now() + 86400000 * 20).toISOString(),
+                expiresAt: twentyDaysFromNow.toISOString(),
                 deviceId: 'DEV-987654321',
                 deviceName: 'macOS Safari v16.0',
                 lastValidated: new Date().toISOString(),
                 validationCount: 5,
                 days: 30,
+                isManual: true,
+                stripeSubscriptionId: null,
+                stripeCustomerId: null,
+                renewalCount: 0,
+                lastRenewalAt: null
+            },
+            // Add a test license with 3 days left
+            {
+                licenseKey: 'TEST-3DAY-SORV-TEST-TEST-TEST',
+                customerEmail: 'test3day@example.com',
+                customerName: '3 Day Test User',
+                plan: 'trial',
+                isActive: true,
+                createdAt: now.toISOString(),
+                expiresAt: threeDaysFromNow.toISOString(),
+                deviceId: null,
+                deviceName: null,
+                lastValidated: null,
+                validationCount: 0,
+                days: 3,
                 isManual: true,
                 stripeSubscriptionId: null,
                 stripeCustomerId: null,
@@ -578,8 +665,12 @@ function getDaysLeft(license) {
         renderRecentActivity();
         renderActivityPagination();
         
-        // NEW: Update time-based displays for sample data
-        updateTimeBasedDisplays();
+        // Debug log to verify days left calculation
+        console.log('=== SAMPLE DATA DAYS LEFT VERIFICATION ===');
+        state.licenses.forEach(license => {
+            const daysLeft = getDaysLeft(license);
+            console.log(`${license.licenseKey}: ${daysLeft} days left (expires: ${new Date(license.expiresAt).toLocaleDateString()})`);
+        });
     }
     
     async function loadLicenses() {
@@ -595,18 +686,18 @@ function getDaysLeft(license) {
                 state.licenses = data.licenses || [];
                 state.filteredLicenses = [...state.licenses];
                 
-                // FIXED: Better date validation for licenses
+                // FIXED: Validate and fix date formats
                 state.licenses.forEach(license => {
                     // Validate date formats
                     if (license.expiresAt) {
                         const date = new Date(license.expiresAt);
                         if (isNaN(date.getTime())) {
                             console.warn('Invalid expiry date for license:', license.licenseKey);
-                            // Try to fix it by adding 30 days from creation
+                            // Try to fix it by adding days from creation
                             try {
                                 const created = new Date(license.createdAt);
                                 if (!isNaN(created.getTime())) {
-                                    created.setDate(created.getDate() + 30);
+                                    created.setDate(created.getDate() + (license.days || 30));
                                     license.expiresAt = created.toISOString();
                                     console.log('Fixed expiry date for:', license.licenseKey);
                                 }
@@ -643,30 +734,37 @@ function getDaysLeft(license) {
                     }
                 }).length;
                 
-        if (elements.activeLicenses) {
-            elements.activeLicenses.textContent = activeCount.toLocaleString();
+                if (elements.activeLicenses) {
+                    elements.activeLicenses.textContent = activeCount.toLocaleString();
+                }
+                
+                // Calculate total pages
+                state.totalLicensePages = Math.ceil(state.filteredLicenses.length / state.licensesPerPage);
+                if (state.totalLicensePages === 0) state.totalLicensePages = 1;
+                
+                // Reset to page 1 if current page is out of bounds
+                if (state.currentLicensePage > state.totalLicensePages) {
+                    state.currentLicensePage = 1;
+                }
+                
+                renderLicenseTable();
+                renderLicensePagination();
+                
+                // Debug log to verify days left calculation
+                console.log('=== LOADED LICENSES DAYS LEFT VERIFICATION ===');
+                state.licenses.slice(0, 5).forEach(license => {
+                    const daysLeft = getDaysLeft(license);
+                    console.log(`${license.licenseKey}: ${daysLeft} days left`);
+                });
+            } else {
+                throw new Error(data.error || 'Failed to load licenses');
+            }
+        } catch (error) {
+            console.error('License load error:', error);
+            if (!error.message.includes('Unauthorized') && !state.licenses.length) {
+                loadSampleData();
+            }
         }
-        
-        // Calculate total pages
-        state.totalLicensePages = Math.ceil(state.filteredLicenses.length / state.licensesPerPage);
-        if (state.totalLicensePages === 0) state.totalLicensePages = 1;
-        
-        // Reset to page 1 if current page is out of bounds
-        if (state.currentLicensePage > state.totalLicensePages) {
-            state.currentLicensePage = 1;
-        }
-        
-        renderLicenseTable();
-        renderLicensePagination();
-    } else {
-        throw new Error(data.error || 'Failed to load licenses');
-    }
-} catch (error) {
-    console.error('License load error:', error);
-    if (!error.message.includes('Unauthorized') && !state.licenses.length) {
-        loadSampleData();
-    }
-}
     }
     
     async function loadRecentActivity() {
@@ -733,6 +831,8 @@ function getDaysLeft(license) {
             showNotification('Creating license...', 'info');
             
             console.log('Sending request with days:', days, 'email:', email);
+            console.log('Current date (local):', new Date().toLocaleString());
+            console.log('User timezone:', Intl.DateTimeFormat().resolvedOptions().timeZone);
             
             const response = await fetchWithAuth('/admin/create-license', {
                 method: 'POST',
@@ -744,18 +844,30 @@ function getDaysLeft(license) {
             });
             
             if (response.success) {
-                // FIXED: Ensure the license has valid dates
                 const license = response.license;
                 
+                // DEBUG: Log the dates
+                console.log('=== LICENSE CREATION DEBUG ===');
+                console.log('License created successfully:');
+                console.log('- License key:', license.licenseKey || license.key);
+                console.log('- Created at:', license.createdAt);
+                console.log('- Expires at:', license.expiresAt);
+                console.log('- Days requested:', days);
+                
+                const createdDate = new Date(license.createdAt);
+                const expiryDate = new Date(license.expiresAt);
+                
+                console.log('- Created date object:', createdDate.toLocaleString());
+                console.log('- Expiry date object:', expiryDate.toLocaleString());
+                console.log('- Time difference (ms):', expiryDate - createdDate);
+                console.log('- Calculated days:', Math.floor((expiryDate - createdDate) / (1000 * 60 * 60 * 24)));
+                
                 // Validate dates in the response
-                if (license.expiresAt) {
-                    const expiry = new Date(license.expiresAt);
-                    if (isNaN(expiry.getTime())) {
-                        console.warn('Invalid expiry date in response, fixing...');
-                        const created = new Date(license.createdAt || Date.now());
-                        created.setDate(created.getDate() + days);
-                        license.expiresAt = created.toISOString();
-                    }
+                if (license.expiresAt && isNaN(expiryDate.getTime())) {
+                    console.warn('Invalid expiry date in response, fixing...');
+                    createdDate.setDate(createdDate.getDate() + days);
+                    license.expiresAt = createdDate.toISOString();
+                    console.log('- Fixed expiry date:', license.expiresAt);
                 }
                 
                 let message = `License created successfully for ${days} days!`;
@@ -782,6 +894,24 @@ function getDaysLeft(license) {
                 
                 // Recalculate revenue (manual licenses should not affect revenue)
                 calculateLifetimeRevenue();
+                
+                // TEST: Calculate and log days left for the new license
+                setTimeout(() => {
+                    const daysLeft = getDaysLeft(license);
+                    console.log('=== DAYS LEFT VERIFICATION ===');
+                    console.log('- License key:', license.licenseKey);
+                    console.log('- Expires at:', license.expiresAt);
+                    console.log('- Current time:', new Date().toLocaleString());
+                    console.log('- Days left calculated:', daysLeft);
+                    console.log('- Should be:', days);
+                    
+                    if (daysLeft !== days) {
+                        console.warn(`⚠️ WARNING: Days left (${daysLeft}) doesn't match requested days (${days})`);
+                        console.log('This might be due to timezone differences or partial days');
+                    } else {
+                        console.log('✅ SUCCESS: Days left calculation is correct!');
+                    }
+                }, 1000);
                 
                 return license;
             } else {
@@ -1252,7 +1382,7 @@ function getDaysLeft(license) {
             });
         });
         
-        // NEW: Update days left displays immediately after rendering
+        // Update days left displays immediately after rendering
         updateTimeBasedDisplays();
     }
     
@@ -1658,6 +1788,12 @@ function getDaysLeft(license) {
     function logout() {
         state.isAuthenticated = false;
         state.adminToken = '';
+        
+        // Clear the update interval
+        if (state.updateInterval) {
+            clearInterval(state.updateInterval);
+            state.updateInterval = null;
+        }
         
         try {
             sessionStorage.removeItem('sorvide_admin_token');
@@ -2093,9 +2229,28 @@ function getDaysLeft(license) {
         
         console.log('✅ Admin Dashboard initialized');
         
-        // NEW: Start time-based updates interval
-        setInterval(updateTimeBasedDisplays, 60000); // Every minute
-        console.log('✅ Time-based updates interval started (every 60 seconds)');
+        // Test function to verify date calculations
+        setTimeout(() => {
+            console.log('=== DATE CALCULATION TEST ===');
+            console.log('Current timezone:', Intl.DateTimeFormat().resolvedOptions().timeZone);
+            console.log('Current date/time:', new Date().toLocaleString());
+            
+            // Test 3 days from now
+            const now = new Date();
+            const in3Days = new Date(now.getTime() + (3 * 24 * 60 * 60 * 1000));
+            
+            const testLicense = {
+                licenseKey: 'TEST-CALC-SORV-TEST',
+                isActive: true,
+                expiresAt: in3Days.toISOString()
+            };
+            
+            const daysLeft = getDaysLeft(testLicense);
+            console.log('Test license expires:', in3Days.toLocaleDateString());
+            console.log('Days left calculated:', daysLeft);
+            console.log('Expected: 3');
+            console.log('Test result:', daysLeft === 3 ? '✅ PASS' : '❌ FAIL');
+        }, 3000);
     }
     
     // Start the admin dashboard

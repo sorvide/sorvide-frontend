@@ -245,60 +245,85 @@ document.addEventListener('DOMContentLoaded', function() {
     // Export button functionality
     const exportButtons = document.querySelectorAll('.export-btn');
     const exportStatus = document.getElementById('exportStatus');
-    
+
     if (exportButtons.length > 0) {
         exportButtons.forEach(btn => {
             btn.addEventListener('click', function(e) {
                 const format = this.dataset.format;
-                
-                if (this.classList.contains('coming-soon')) {
-                    e.preventDefault();
-                    exportStatus.textContent = 'Microsoft Word export coming soon!';
-                    exportStatus.className = 'export-status success';
-                    
-                    setTimeout(() => {
-                        exportStatus.className = 'export-status';
-                        exportStatus.textContent = '';
-                    }, 3000);
-                    return;
-                }
-                
                 e.preventDefault();
                 
-                const successText = format === 'pdf' 
-                    ? '<i class="fas fa-check"></i> Downloaded!' 
-                    : '<i class="fas fa-check"></i> Opened!';
-                
                 const originalHTML = this.innerHTML;
-                this.innerHTML = successText;
-                this.style.background = '#10b981';
+                this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+                this.disabled = true;
                 
-                if (format === 'pdf') {
-                    setTimeout(() => {
+                // Get clean sample research text
+                let researchText = getCleanResearchText();
+                
+                // Generate file based on format
+                setTimeout(() => {
+                    try {
+                        let fileName, fileContent, fileType;
+                        
+                        switch(format) {
+                            case 'html':
+                                fileName = 'Sorvide-Research.html';
+                                fileContent = generateHTMLFile(researchText);
+                                fileType = 'text/html';
+                                break;
+                            case 'text':
+                                fileName = 'Sorvide-Research.txt';
+                                fileContent = generateTextFile(researchText);
+                                fileType = 'text/plain';
+                                break;
+                            case 'word':
+                                fileName = 'Sorvide-Research.docx';
+                                fileContent = generateWordFile(researchText);
+                                fileType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+                                break;
+                            default:
+                                throw new Error('Invalid format');
+                        }
+                        
+                        // Create download
+                        const blob = new Blob([fileContent], { type: fileType });
+                        const url = URL.createObjectURL(blob);
                         const a = document.createElement('a');
-                        a.href = 'sorvide-analysis.pdf';
-                        a.download = 'Sorvide-Research-Text.pdf';
+                        a.href = url;
+                        a.download = fileName;
                         a.style.display = 'none';
                         document.body.appendChild(a);
                         a.click();
-                        document.body.removeChild(a);
-                    }, 10);
+                        
+                        // Cleanup
+                        setTimeout(() => {
+                            document.body.removeChild(a);
+                            URL.revokeObjectURL(url);
+                        }, 100);
+                        
+                        // Update UI
+                        this.innerHTML = '<i class="fas fa-check"></i> Downloaded!';
+                        this.style.background = '#10b981';
+                        exportStatus.textContent = `${format.toUpperCase()} file downloaded successfully!`;
+                        exportStatus.className = 'export-status success';
+                        
+                    } catch (error) {
+                        console.error('Export error:', error);
+                        this.innerHTML = originalHTML;
+                        this.disabled = false;
+                        exportStatus.textContent = 'Failed to generate file. Please try again.';
+                        exportStatus.className = 'export-status error';
+                    }
                     
-                    exportStatus.textContent = 'PDF download started!';
+                    // Reset button after 3 seconds
+                    setTimeout(() => {
+                        this.innerHTML = originalHTML;
+                        this.disabled = false;
+                        this.style.background = '';
+                        exportStatus.className = 'export-status';
+                        exportStatus.textContent = '';
+                    }, 3000);
                     
-                } else if (format === 'google') {
-                    window.open('https://docs.google.com/document/d/1sbpDMxecUvvoL0_zlEOEIIV9o4o3x6vuXOFslr0T-GU/preview', '_blank');
-                    exportStatus.textContent = 'Opening Google Docs...';
-                }
-                
-                exportStatus.className = 'export-status success';
-                
-                setTimeout(() => {
-                    this.innerHTML = originalHTML;
-                    this.style.background = '';
-                    exportStatus.className = 'export-status';
-                    exportStatus.textContent = '';
-                }, 2000);
+                }, 1000); // Simulate processing delay
             });
         });
     }
@@ -345,6 +370,188 @@ document.addEventListener('DOMContentLoaded', function() {
         checkVisibility();
     }, 100);
 });
+
+// Helper function to get clean research text
+function getCleanResearchText() {
+    return `Artificial Intelligence in Modern Research
+
+The integration of artificial intelligence into academic research has fundamentally transformed scholarly practices across disciplines. Modern AI systems, particularly large language models, demonstrate unprecedented capabilities in processing, analyzing, and synthesizing vast amounts of academic literature. These systems can identify patterns and connections that might elude human researchers, while simultaneously ensuring consistency in methodology and reporting.
+
+Recent advancements in natural language processing have enabled AI to comprehend complex academic texts, extract key insights, generate coherent summaries, and even propose novel research directions. However, ethical considerations remain paramount, including concerns about algorithmic bias, data privacy, and the appropriate attribution of AI-assisted work.
+
+The most significant impact has been observed in literature review processes, where AI can reduce weeks of manual work to hours. Additionally, AI-powered tools enhance research quality by providing instant plagiarism checks, generating properly formatted citations, and ensuring adherence to academic writing standards across various citation styles including APA, MLA, and Chicago formats. The democratization of research tools through browser extensions makes advanced AI capabilities accessible to students and researchers at all levels.
+
+Looking forward, AI is expected to further revolutionize academic research through predictive analytics, automated hypothesis generation, and collaborative research platforms. These advancements promise to accelerate scientific discovery while maintaining rigorous academic standards and ethical research practices.`;
+}
+
+// Generate HTML file
+function generateHTMLFile(text) {
+    const title = "Sorvide Research Text - AI in Modern Research";
+    const date = new Date().toLocaleDateString();
+    
+    // Clean the text - ensure no extra whitespace
+    const cleanedText = text.trim();
+    const wordCount = cleanedText.split(/\s+/).filter(word => word.length > 0).length;
+    
+    // Escape HTML entities and preserve line breaks
+    const htmlText = cleanedText
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\n/g, '<br>');
+    
+    // Build HTML with proper indentation
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>${title}</title>
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            background: #f8fafc;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #4a4fd8;
+        }
+        h1 {
+            color: #1e293b;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        .metadata {
+            background: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            margin-bottom: 30px;
+            border-left: 4px solid #4a4fd8;
+        }
+        .metadata div {
+            margin-bottom: 8px;
+            color: #64748b;
+        }
+        .metadata strong {
+            color: #475569;
+            min-width: 80px;
+            display: inline-block;
+        }
+        .content {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            white-space: pre-line;
+            line-height: 1.8;
+        }
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #e2e8f0;
+            text-align: center;
+            color: #94a3b8;
+            font-size: 14px;
+        }
+        .badge {
+            background: #4a4fd8;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            display: inline-block;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="badge">Exported with Sorvide</div>
+        <h1>${title}</h1>
+    </div>
+    
+    <div class="metadata">
+        <div><strong>Export Date:</strong> ${date}</div>
+        <div><strong>Source:</strong> Sorvide Demo Research Text</div>
+        <div><strong>Format:</strong> HTML</div>
+        <div><strong>Word Count:</strong> ${wordCount} words</div>
+        <div><strong>Character Count:</strong> ${cleanedText.length} characters</div>
+    </div>
+    
+    <div class="content">
+${htmlText}
+    </div>
+    
+    <div class="footer">
+        <p>Generated by Sorvide AI</p>
+    </div>
+</body>
+</html>`;
+    
+    return html;
+}
+
+// Generate text file
+function generateTextFile(text) {
+    const title = "Sorvide Research Text - AI in Modern Research";
+    const date = new Date().toLocaleDateString();
+    
+    // Clean the text
+    const cleanedText = text.trim();
+    const wordCount = cleanedText.split(/\s+/).filter(word => word.length > 0).length;
+    
+    return `Sorvide Research Export
+===============================
+Title: ${title}
+Date: ${date}
+Source: Sorvide Demo Research Text
+Format: Plain Text
+Word Count: ${wordCount} words
+Character Count: ${cleanedText.length} characters
+
+===============================
+
+${cleanedText}
+
+===============================
+
+Generated by Sorvide AI`;
+}
+
+// Generate Word file (demo version)
+function generateWordFile(text) {
+    const title = "Sorvide Research Text - AI in Modern Research";
+    const date = new Date().toLocaleDateString();
+    const cleanedText = text.trim();
+    const wordCount = cleanedText.split(/\s+/).filter(word => word.length > 0).length;
+    
+    return `Microsoft Word Document - ${title}
+
+Export Date: ${date}
+Source: Sorvide Demo Research Text
+Format: Microsoft Word (.docx)
+Word Count: ${wordCount} words
+
+${'='.repeat(50)}
+
+${cleanedText}
+
+${'='.repeat(50)}
+
+Note: This is a demonstration. In the actual Sorvide Chrome extension,
+you would receive a fully formatted .docx file with proper styling,
+headers, and academic formatting.
+
+Generated by Sorvide AI`;
+}
 
 // Update citation text
 function updateCitationText(style) {

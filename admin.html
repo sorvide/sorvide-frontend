@@ -300,96 +300,27 @@
             box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
         }
 
-        /* ===== TEST EMAIL BUTTON SPECIFIC STYLES ===== */
-        #testEmailBtn {
-            position: relative;
-            overflow: hidden;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            border: 2px solid var(--border-light);
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(248, 249, 255, 0.95));
-        }
+/* ===== TEST EMAIL BUTTON (MATCHES OTHER BUTTONS) ===== */
+#testEmailBtn {
+    position: relative; /* Only keep this for the TEST badge */
+}
 
-        #testEmailBtn:hover {
-            border-color: var(--primary-main);
-            transform: translateY(-3px);
-            box-shadow: 0 10px 25px rgba(74, 79, 216, 0.15);
-            background: linear-gradient(135deg, rgba(255, 255, 255, 1), rgba(248, 249, 255, 1));
-        }
+/* Test Email Badge - Keep this unique feature */
+#testEmailBtn::after {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: linear-gradient(135deg, var(--accent-green), #059669);
+    color: white;
+    font-size: 9px;
+    font-weight: 800;
+    padding: 2px 6px;
+    border-radius: 10px;
+    letter-spacing: 0.5px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
 
-        #testEmailBtn::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 3px;
-            background: linear-gradient(90deg, var(--primary-main), var(--primary-light));
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-
-        #testEmailBtn:hover::before {
-            opacity: 1;
-        }
-
-        #testEmailBtn i {
-            color: var(--primary-main);
-            font-size: 20px;
-            position: relative;
-            z-index: 1;
-        }
-
-        #testEmailBtn h4 {
-            color: var(--text-primary);
-            font-weight: 700;
-            position: relative;
-            z-index: 1;
-        }
-
-        #testEmailBtn p {
-            color: var(--text-secondary);
-            font-size: 12px;
-            position: relative;
-            z-index: 1;
-        }
-
-        /* Email icon animation */
-        #testEmailBtn i {
-            transition: all 0.3s;
-        }
-
-        #testEmailBtn:hover i {
-            transform: scale(1.1);
-            color: var(--primary-dark);
-        }
-
-        /* Pulse animation for attention */
-        @keyframes pulse-email {
-            0% { box-shadow: 0 0 0 0 rgba(74, 79, 216, 0.4); }
-            70% { box-shadow: 0 0 0 10px rgba(74, 79, 216, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(74, 79, 216, 0); }
-        }
-
-        /* Add this if you want a subtle pulse effect */
-        #testEmailBtn.pulse {
-            animation: pulse-email 2s infinite;
-        }
-
-        /* Test Email Badge */
-        #testEmailBtn::after {
-            content: 'TEST';
-            position: absolute;
-            top: 8px;
-            right: 8px;
-            background: linear-gradient(135deg, var(--accent-green), #059669);
-            color: white;
-            font-size: 9px;
-            font-weight: 800;
-            padding: 2px 6px;
-            border-radius: 10px;
-            letter-spacing: 0.5px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-        }
+/* Remove all other special styling - let it use the default .action-card styles */
 
         .action-card i {
             font-size: 20px;
@@ -1769,18 +1700,18 @@
                                 <p>Reload all license data</p>
                             </div>
                         </div>
-                        <div class="action-card" id="testEmailBtn">
-                            <i class="fas fa-envelope"></i>
-                            <div>
-                                <h4>Test Email</h4>
-                                <p>Send test payment/renewal emails</p>
-                            </div>
-                        </div>
                         <div class="action-card" id="systemHealth">
                             <i class="fas fa-heartbeat"></i>
                             <div>
                                 <h4>System Health</h4>
                                 <p>Check server status</p>
+                            </div>
+                        </div>
+                            <div class="action-card" id="testEmailBtn">
+                            <i class="fas fa-envelope"></i>
+                            <div>
+                                <h4>Test Email</h4>
+                                <p>Send test payment/renewal emails</p>
                             </div>
                         </div>
                     </div>

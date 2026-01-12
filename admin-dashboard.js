@@ -142,60 +142,54 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // FIXED: Simple date format with timezone
-    function formatSimpleDate(dateString) {
-        try {
-            if (!dateString) return 'Not set';
-            
-            const date = new Date(dateString);
-            
-            // Check if date is valid
-            if (isNaN(date.getTime())) {
-                return 'Invalid date';
-            }
-            
-            // Use local timezone
-            const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-            return date.toLocaleDateString('en-US', {
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric',
-                timeZone: timeZone
-            });
-        } catch (e) {
+// FIXED: Simple date format with timezone
+function formatSimpleDate(dateString) {
+    try {
+        if (!dateString) return 'Not set';
+        
+        const date = new Date(dateString);
+        
+        // Check if date is valid
+        if (isNaN(date.getTime())) {
             return 'Invalid date';
         }
-    }
-    
-    // FIXED: ACCURATE days left calculation with proper timezone handling
-    function getDaysLeft(license) {
-        if (!license.isActive) return -1;
         
-        try {
-            const expiry = new Date(license.expiresAt);
-            const now = new Date();
-            
-            // Check if expiry date is valid
-            if (isNaN(expiry.getTime())) {
-                return -1;
-            }
-            
-            // IMPORTANT: Reset both dates to midnight in local timezone
-            // This ensures we calculate whole days correctly
-            const expiryLocal = new Date(expiry.getFullYear(), expiry.getMonth(), expiry.getDate());
-            const nowLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-            
-            // Calculate difference in days
-            const timeDiff = expiryLocal.getTime() - nowLocal.getTime();
-            const daysLeft = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
-            
-            // Return 0 if expired today or in the past
-            return Math.max(daysLeft, 0);
-        } catch (e) {
-            console.error('Error calculating days left:', e);
+        // Use UTC to avoid timezone confusion
+        return date.toISOString().split('T')[0]; // Returns YYYY-MM-DD
+    } catch (e) {
+        return 'Invalid date';
+    }
+}
+    
+// FIXED: ACCURATE days left calculation with proper timezone handling
+function getDaysLeft(license) {
+    if (!license.isActive) return -1;
+    
+    try {
+        const expiry = new Date(license.expiresAt);
+        const now = new Date();
+        
+        // Check if expiry date is valid
+        if (isNaN(expiry.getTime())) {
+            console.warn('Invalid expiry date for license:', license.licenseKey);
             return -1;
         }
+        
+        // FIX: Use UTC dates to avoid timezone issues
+        const expiryUTC = Date.UTC(expiry.getFullYear(), expiry.getMonth(), expiry.getDate());
+        const nowUTC = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+        
+        // Calculate difference in days
+        const timeDiff = expiryUTC - nowUTC;
+        const daysLeft = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+        
+        // Return 0 if expired today or in the past
+        return Math.max(daysLeft, 0);
+    } catch (e) {
+        console.error('Error calculating days left:', e);
+        return -1;
     }
+}
     
     // ========== REAL-TIME UPDATES ==========
     function updateTimeBasedDisplays() {
@@ -950,31 +944,40 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // NEW: Send test email function
-    async function sendTestEmail(email, emailType) {
-        try {
-            showNotification(`Sending ${emailType} test email...`, 'info');
-            
-            const response = await fetchWithAuth('/admin/send-test-email', {
-                method: 'POST',
-                body: JSON.stringify({ 
-                    email: email,
-                    emailType: emailType // 'payment' or 'renewal'
-                })
-            });
-            
-            if (response.success) {
-                showNotification(`${emailType} test email sent successfully!`, 'success');
-                return true;
-            } else {
-                throw new Error(response.error || 'Failed to send test email');
-            }
-        } catch (error) {
-            console.error('Send test email error:', error);
-            showNotification(`Failed to send test email: ${error.message}`, 'error');
-            throw error;
+async function sendTestEmail(email, emailType) {
+    try {
+        debugLog('sendTestEmail called with:', { email, emailType });
+        debugLog('Current state:', {
+            isAuthenticated: state.isAuthenticated,
+            adminToken: state.adminToken,
+            adminTokenLength: state.adminToken?.length,
+            matchesConfig: state.adminToken === CONFIG.ADMIN_TOKEN
+        });
+        
+        showNotification(`Sending ${emailType} test email...`, 'info');
+        
+        const response = await fetchWithAuth('/admin/send-test-email', {
+            method: 'POST',
+            body: JSON.stringify({ 
+                email: email,
+                emailType: emailType
+            })
+        });
+        
+        debugLog('API response:', response);
+        
+        if (response.success) {
+            showNotification(`${emailType} test email sent successfully!`, 'success');
+            return true;
+        } else {
+            throw new Error(response.error || 'Failed to send test email');
         }
+    } catch (error) {
+        debugLog('❌ Send test email error:', error);
+        showNotification(`Failed to send test email: ${error.message}`, 'error');
+        throw error;
     }
+}
     
     async function deactivateLicense(licenseKey) {
         try {

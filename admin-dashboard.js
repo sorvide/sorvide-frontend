@@ -1014,9 +1014,6 @@ function showTestEmailModal() {
                     <button class="close-modal">&times;</button>
                 </div>
                 <div class="modal-body">
-                    <div class="test-email-info">
-                        <p><i class="fas fa-info-circle"></i> Test both payment confirmation and renewal emails</p>
-                    </div>
                     
                     <div class="test-email-form">
                         <div class="form-group">
@@ -1726,53 +1723,53 @@ function showTestEmailModal() {
         container.innerHTML = html;
     }
     
-    function renderActivityPagination() {
-        if (!elements.activityPaginationContainer) return;
-        
-        if (state.filteredActivities.length <= state.activitiesPerPage) {
-            elements.activityPaginationContainer.innerHTML = '';
-            return;
-        }
-        
-        let html = `
-            <div class="activity-pagination">
-                <button class="pagination-btn ${state.currentActivityPage === 1 ? 'disabled' : ''}" 
-                        ${state.currentActivityPage === 1 ? 'disabled' : ''} 
-                        id="prevActivityPage">
-                    <i class="fas fa-chevron-left"></i>
-                </button>
-                
-                <div class="activity-page-info">
-                    Page ${state.currentActivityPage} of ${state.totalActivityPages}
-                </div>
-                
-                <button class="pagination-btn ${state.currentActivityPage === state.totalActivityPages ? 'disabled' : ''}" 
-                        ${state.currentActivityPage === state.totalLicensePages ? 'disabled' : ''} 
-                        id="nextActivityPage">
-                    <i class="fas fa-chevron-right"></i>
-                </button>
-            </div>
-        `;
-        
-        elements.activityPaginationContainer.innerHTML = html;
-        
-        // Add event listeners
-        document.getElementById('prevActivityPage')?.addEventListener('click', () => {
-            if (state.currentActivityPage > 1) {
-                state.currentActivityPage--;
-                renderRecentActivity();
-                renderActivityPagination();
-            }
-        });
-        
-        document.getElementById('nextActivityPage')?.addEventListener('click', () => {
-            if (state.currentActivityPage < state.totalActivityPages) {
-                state.currentActivityPage++;
-                renderRecentActivity();
-                renderActivityPagination();
-            }
-        });
+function renderActivityPagination() {
+    if (!elements.activityPaginationContainer) return;
+    
+    if (state.filteredActivities.length <= state.activitiesPerPage) {
+        elements.activityPaginationContainer.innerHTML = '';
+        return;
     }
+    
+    let html = `
+        <div class="activity-pagination">
+            <button class="pagination-btn ${state.currentActivityPage === 1 ? 'disabled' : ''}" 
+                    ${state.currentActivityPage === 1 ? 'disabled' : ''} 
+                    id="prevActivityPageBtn">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+            
+            <div class="activity-page-info">
+                Page ${state.currentActivityPage} of ${state.totalActivityPages}
+            </div>
+            
+            <button class="pagination-btn ${state.currentActivityPage === state.totalActivityPages ? 'disabled' : ''}" 
+                    ${state.currentActivityPage === state.totalActivityPages ? 'disabled' : ''} 
+                    id="nextActivityPageBtn">
+                <i class="fas fa-chevron-right"></i>
+            </button>
+        </div>
+    `;
+    
+    elements.activityPaginationContainer.innerHTML = html;
+    
+    // **FIXED: Add event listeners with correct IDs**
+    document.getElementById('prevActivityPageBtn')?.addEventListener('click', () => {
+        if (state.currentActivityPage > 1) {
+            state.currentActivityPage--;
+            renderRecentActivity();
+            renderActivityPagination();
+        }
+    });
+    
+    document.getElementById('nextActivityPageBtn')?.addEventListener('click', () => {
+        if (state.currentActivityPage < state.totalActivityPages) {
+            state.currentActivityPage++;
+            renderRecentActivity();
+            renderActivityPagination();
+        }
+    });
+}
     
     // ========== AUTHENTICATION FUNCTIONS ==========
     async function login() {

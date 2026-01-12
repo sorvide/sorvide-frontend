@@ -1,4 +1,4 @@
-// admin-dashboard.js - COMPLETE with FIXED date handling and accurate days left calculation
+// admin-dashboard.js - COMPLETE with FIXED test email functionality
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🔧 Loading Sorvide Admin Dashboard...');
@@ -142,54 +142,54 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-// FIXED: Simple date format with timezone
-function formatSimpleDate(dateString) {
-    try {
-        if (!dateString) return 'Not set';
-        
-        const date = new Date(dateString);
-        
-        // Check if date is valid
-        if (isNaN(date.getTime())) {
+    // FIXED: Simple date format with timezone
+    function formatSimpleDate(dateString) {
+        try {
+            if (!dateString) return 'Not set';
+            
+            const date = new Date(dateString);
+            
+            // Check if date is valid
+            if (isNaN(date.getTime())) {
+                return 'Invalid date';
+            }
+            
+            // Use UTC to avoid timezone confusion
+            return date.toISOString().split('T')[0]; // Returns YYYY-MM-DD
+        } catch (e) {
             return 'Invalid date';
         }
-        
-        // Use UTC to avoid timezone confusion
-        return date.toISOString().split('T')[0]; // Returns YYYY-MM-DD
-    } catch (e) {
-        return 'Invalid date';
     }
-}
     
-// FIXED: ACCURATE days left calculation with proper timezone handling
-function getDaysLeft(license) {
-    if (!license.isActive) return -1;
-    
-    try {
-        const expiry = new Date(license.expiresAt);
-        const now = new Date();
+    // FIXED: ACCURATE days left calculation with proper timezone handling
+    function getDaysLeft(license) {
+        if (!license.isActive) return -1;
         
-        // Check if expiry date is valid
-        if (isNaN(expiry.getTime())) {
-            console.warn('Invalid expiry date for license:', license.licenseKey);
+        try {
+            const expiry = new Date(license.expiresAt);
+            const now = new Date();
+            
+            // Check if expiry date is valid
+            if (isNaN(expiry.getTime())) {
+                console.warn('Invalid expiry date for license:', license.licenseKey);
+                return -1;
+            }
+            
+            // FIX: Use UTC dates to avoid timezone issues
+            const expiryUTC = Date.UTC(expiry.getFullYear(), expiry.getMonth(), expiry.getDate());
+            const nowUTC = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+            
+            // Calculate difference in days
+            const timeDiff = expiryUTC - nowUTC;
+            const daysLeft = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+            
+            // Return 0 if expired today or in the past
+            return Math.max(daysLeft, 0);
+        } catch (e) {
+            console.error('Error calculating days left:', e);
             return -1;
         }
-        
-        // FIX: Use UTC dates to avoid timezone issues
-        const expiryUTC = Date.UTC(expiry.getFullYear(), expiry.getMonth(), expiry.getDate());
-        const nowUTC = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
-        
-        // Calculate difference in days
-        const timeDiff = expiryUTC - nowUTC;
-        const daysLeft = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
-        
-        // Return 0 if expired today or in the past
-        return Math.max(daysLeft, 0);
-    } catch (e) {
-        console.error('Error calculating days left:', e);
-        return -1;
     }
-}
     
     // ========== REAL-TIME UPDATES ==========
     function updateTimeBasedDisplays() {
@@ -820,103 +820,121 @@ function getDaysLeft(license) {
         }
     }
     
-    async function createLicense(email, name, days) {
-        try {
-            showNotification('Creating license...', 'info');
+async function createLicense(email, name, days) {
+    try {
+        showNotification('Creating license...', 'info');
+        
+        console.log('Sending request with days:', days, 'email:', email);
+        console.log('Current date (local):', new Date().toLocaleString());
+        console.log('User timezone:', Intl.DateTimeFormat().resolvedOptions().timeZone);
+        
+        const response = await fetchWithAuth('/admin/create-license', {
+            method: 'POST',
+            body: JSON.stringify({ 
+                email: email,
+                name: name,
+                days: days
+            })
+        });
+        
+        if (response.success) {
+            const license = response.license;
             
-            console.log('Sending request with days:', days, 'email:', email);
-            console.log('Current date (local):', new Date().toLocaleString());
-            console.log('User timezone:', Intl.DateTimeFormat().resolvedOptions().timeZone);
+            // DEBUG: Log the dates
+            console.log('=== LICENSE CREATION DEBUG ===');
+            console.log('License created successfully:');
+            console.log('- License key:', license.licenseKey || license.key);
+            console.log('- Created at:', license.createdAt);
+            console.log('- Expires at:', license.expiresAt);
+            console.log('- Days requested:', days);
             
-            const response = await fetchWithAuth('/admin/create-license', {
-                method: 'POST',
-                body: JSON.stringify({ 
-                    email: email,
-                    name: name,
-                    days: days
-                })
-            });
+            const createdDate = new Date(license.createdAt);
+            const expiryDate = new Date(license.expiresAt);
             
-            if (response.success) {
-                const license = response.license;
-                
-                // DEBUG: Log the dates
-                console.log('=== LICENSE CREATION DEBUG ===');
-                console.log('License created successfully:');
-                console.log('- License key:', license.licenseKey || license.key);
-                console.log('- Created at:', license.createdAt);
-                console.log('- Expires at:', license.expiresAt);
-                console.log('- Days requested:', days);
-                
-                const createdDate = new Date(license.createdAt);
-                const expiryDate = new Date(license.expiresAt);
-                
-                console.log('- Created date object:', createdDate.toLocaleString());
-                console.log('- Expiry date object:', expiryDate.toLocaleString());
-                console.log('- Time difference (ms):', expiryDate - createdDate);
-                console.log('- Calculated days:', Math.floor((expiryDate - createdDate) / (1000 * 60 * 60 * 24)));
-                
-                // Validate dates in the response
-                if (license.expiresAt && isNaN(expiryDate.getTime())) {
-                    console.warn('Invalid expiry date in response, fixing...');
-                    createdDate.setDate(createdDate.getDate() + days);
-                    license.expiresAt = createdDate.toISOString();
-                    console.log('- Fixed expiry date:', license.expiresAt);
-                }
-                
-                let message = `License created successfully for ${days} days!`;
-                if (days === 30) {
-                    message += ' (Manual license - does not affect revenue)';
-                }
-                showNotification(message, 'success');
-                
-                // Show the generated key
-                if (elements.generatedKey) {
-                    elements.generatedKey.textContent = license.key || license.licenseKey;
-                }
-                if (elements.generatedKeySection) {
-                    elements.generatedKeySection.style.display = 'block';
-                }
-                
-                // Clear form
-                if (elements.customerEmail) elements.customerEmail.value = '';
-                if (elements.customerName) elements.customerName.value = '';
-                
-                // Reload licenses and activity
-                await loadLicenses();
-                await loadRecentActivity();
-                
-                // Recalculate revenue (manual licenses should not affect revenue)
-                calculateLifetimeRevenue();
-                
-                // TEST: Calculate and log days left for the new license
-                setTimeout(() => {
-                    const daysLeft = getDaysLeft(license);
-                    console.log('=== DAYS LEFT VERIFICATION ===');
-                    console.log('- License key:', license.licenseKey);
-                    console.log('- Expires at:', license.expiresAt);
-                    console.log('- Current time:', new Date().toLocaleString());
-                    console.log('- Days left calculated:', daysLeft);
-                    console.log('- Should be:', days);
-                    
-                    if (daysLeft !== days) {
-                        console.warn(`⚠️ WARNING: Days left (${daysLeft}) doesn't match requested days (${days})`);
-                        console.log('This might be due to timezone differences or partial days');
-                    } else {
-                        console.log('✅ SUCCESS: Days left calculation is correct!');
-                    }
-                }, 1000);
-                
-                return license;
-            } else {
-                throw new Error(response.error || 'Failed to create license');
+            console.log('- Created date object:', createdDate.toLocaleString());
+            console.log('- Expiry date object:', expiryDate.toLocaleString());
+            console.log('- Time difference (ms):', expiryDate - createdDate);
+            console.log('- Calculated days:', Math.floor((expiryDate - createdDate) / (1000 * 60 * 60 * 24)));
+            
+            // Validate dates in the response
+            if (license.expiresAt && isNaN(expiryDate.getTime())) {
+                console.warn('Invalid expiry date in response, fixing...');
+                createdDate.setDate(createdDate.getDate() + days);
+                license.expiresAt = createdDate.toISOString();
+                console.log('- Fixed expiry date:', license.expiresAt);
             }
-        } catch (error) {
-            console.error('Create license error:', error);
-            showNotification(`Failed to create license: ${error.message}`, 'error');
-            throw error;
+            
+            let message = `License created successfully for ${days} days!`;
+            if (days === 30) {
+                message += ' (Manual license - does not affect revenue)';
+            }
+            showNotification(message, 'success');
+            
+            // Show the generated key
+            if (elements.generatedKey) {
+                elements.generatedKey.textContent = license.key || license.licenseKey;
+            }
+            if (elements.generatedKeySection) {
+                elements.generatedKeySection.style.display = 'block';
+            }
+            
+            // ========== CRITICAL FIX: SEND LICENSE EMAIL AUTOMATICALLY ==========
+            console.log('📧 Attempting to send license email automatically...');
+            try {
+                // Send the license email
+                await sendLicenseEmail(
+                    license.key || license.licenseKey,
+                    email,
+                    name || email.split('@')[0]
+                );
+                console.log('✅ License email sent successfully!');
+                showNotification('License email sent to customer', 'success');
+            } catch (emailError) {
+                console.error('❌ Failed to send license email:', emailError);
+                // Don't throw - just show warning
+                showNotification('License created but email failed to send. Use "Send Email" button.', 'warning');
+            }
+            // ========== END FIX ==========
+            
+            // Clear form
+            if (elements.customerEmail) elements.customerEmail.value = '';
+            if (elements.customerName) elements.customerName.value = '';
+            
+            // Reload licenses and activity
+            await loadLicenses();
+            await loadRecentActivity();
+            
+            // Recalculate revenue (manual licenses should not affect revenue)
+            calculateLifetimeRevenue();
+            
+            // TEST: Calculate and log days left for the new license
+            setTimeout(() => {
+                const daysLeft = getDaysLeft(license);
+                console.log('=== DAYS LEFT VERIFICATION ===');
+                console.log('- License key:', license.licenseKey);
+                console.log('- Expires at:', license.expiresAt);
+                console.log('- Current time:', new Date().toLocaleString());
+                console.log('- Days left calculated:', daysLeft);
+                console.log('- Should be:', days);
+                
+                if (daysLeft !== days) {
+                    console.warn(`⚠️ WARNING: Days left (${daysLeft}) doesn't match requested days (${days})`);
+                    console.log('This might be due to timezone differences or partial days');
+                } else {
+                    console.log('✅ SUCCESS: Days left calculation is correct!');
+                }
+            }, 1000);
+            
+            return license;
+        } else {
+            throw new Error(response.error || 'Failed to create license');
         }
+    } catch (error) {
+        console.error('Create license error:', error);
+        showNotification(`Failed to create license: ${error.message}`, 'error');
+        throw error;
     }
+}
     
     async function sendLicenseEmail(licenseKey, customerEmail, customerName) {
         try {
@@ -944,40 +962,143 @@ function getDaysLeft(license) {
         }
     }
     
-async function sendTestEmail(email, emailType) {
-    try {
-        debugLog('sendTestEmail called with:', { email, emailType });
-        debugLog('Current state:', {
-            isAuthenticated: state.isAuthenticated,
-            adminToken: state.adminToken,
-            adminTokenLength: state.adminToken?.length,
-            matchesConfig: state.adminToken === CONFIG.ADMIN_TOKEN
-        });
-        
-        showNotification(`Sending ${emailType} test email...`, 'info');
-        
-        const response = await fetchWithAuth('/admin/send-test-email', {
-            method: 'POST',
-            body: JSON.stringify({ 
-                email: email,
-                emailType: emailType
-            })
-        });
-        
-        debugLog('API response:', response);
-        
-        if (response.success) {
-            showNotification(`${emailType} test email sent successfully!`, 'success');
-            return true;
-        } else {
-            throw new Error(response.error || 'Failed to send test email');
+    // ========== TEST EMAIL FUNCTIONS ==========
+    async function sendTestEmail(email, emailType) {
+        try {
+            console.log('📧 Sending test email:', { email, emailType });
+            console.log('Current state:', {
+                isAuthenticated: state.isAuthenticated,
+                adminToken: state.adminToken,
+                adminTokenLength: state.adminToken?.length,
+                matchesConfig: state.adminToken === CONFIG.ADMIN_TOKEN
+            });
+            
+            showNotification(`Sending ${emailType} test email...`, 'info');
+            
+            const response = await fetchWithAuth('/admin/send-test-email', {
+                method: 'POST',
+                body: JSON.stringify({ 
+                    email: email,
+                    emailType: emailType
+                })
+            });
+            
+            console.log('✅ Email sent successfully:', response);
+            
+            if (response.success) {
+                showNotification(`${emailType} test email sent successfully!`, 'success');
+                return true;
+            } else {
+                throw new Error(response.error || 'Failed to send test email');
+            }
+        } catch (error) {
+            console.error('❌ Send test email error:', error);
+            showNotification(`Failed to send test email: ${error.message}`, 'error');
+            throw error;
         }
-    } catch (error) {
-        debugLog('❌ Send test email error:', error);
-        showNotification(`Failed to send test email: ${error.message}`, 'error');
-        throw error;
     }
-}
+    
+    function showTestEmailModal() {
+        console.log('📧 Opening test email modal...');
+        
+        // Remove existing modal if any
+        const existingModal = document.getElementById('testEmailModal');
+        if (existingModal) existingModal.remove();
+        
+        // Create modal HTML
+        const modalHTML = `
+            <div class="modal" id="testEmailModal" style="display: block; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000;">
+                <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 10px; min-width: 400px;">
+                    <h3 style="margin-top: 0; color: #4a4fd8;">
+                        <i class="fas fa-envelope"></i> Send Test Email
+                    </h3>
+                    
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: bold;">Email Address</label>
+                        <input type="email" id="testEmailInput" 
+                               placeholder="test@example.com" 
+                               style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 16px;">
+                    </div>
+                    
+                    <div style="margin-bottom: 25px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: bold;">Email Type</label>
+                        <select id="testEmailType" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 16px;">
+                            <option value="payment">Payment Email (New License)</option>
+                            <option value="renewal">Renewal Email</option>
+                        </select>
+                    </div>
+                    
+                    <div style="display: flex; gap: 15px; margin-top: 30px;">
+                        <button id="sendTestBtn" style="flex: 1; padding: 12px; background: #4a4fd8; color: white; border: none; border-radius: 5px; font-size: 16px; cursor: pointer;">
+                            <i class="fas fa-paper-plane"></i> Send Test Email
+                        </button>
+                        <button id="cancelTestBtn" style="padding: 12px 25px; background: #f0f0f0; color: #333; border: none; border-radius: 5px; font-size: 16px; cursor: pointer;">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Add modal to page
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+        
+        // Add event listeners
+        document.getElementById('sendTestBtn').addEventListener('click', async function() {
+            const email = document.getElementById('testEmailInput').value.trim();
+            const emailType = document.getElementById('testEmailType').value;
+            
+            if (!email) {
+                alert('Please enter an email address');
+                return;
+            }
+            
+            // Validate email format
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                alert('Please enter a valid email address');
+                return;
+            }
+            
+            // Disable button and show loading
+            this.disabled = true;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+            
+            try {
+                // Use the sendTestEmail function
+                await sendTestEmail(email, emailType);
+                
+                // Close modal
+                document.getElementById('testEmailModal').remove();
+                
+                // Show success notification
+                showNotification(`${emailType} test email sent to ${email}`, 'success');
+                
+            } catch (error) {
+                // Re-enable button
+                this.disabled = false;
+                this.innerHTML = '<i class="fas fa-paper-plane"></i> Send Test Email';
+                
+                alert('Failed to send email: ' + error.message);
+            }
+        });
+        
+        document.getElementById('cancelTestBtn').addEventListener('click', function() {
+            document.getElementById('testEmailModal').remove();
+        });
+        
+        // Close on outside click
+        document.getElementById('testEmailModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                this.remove();
+            }
+        });
+        
+        // Focus on input
+        setTimeout(() => {
+            document.getElementById('testEmailInput').focus();
+        }, 100);
+    }
     
     async function deactivateLicense(licenseKey) {
         try {
@@ -1578,137 +1699,6 @@ async function sendTestEmail(email, emailType) {
         });
     }
     
-    // ========== TEST EMAIL MODAL ==========
-    function showTestEmailModal() {
-        // Create modal if it doesn't exist
-        let modal = document.getElementById('testEmailModal');
-        if (!modal) {
-            modal = document.createElement('div');
-            modal.id = 'testEmailModal';
-            modal.className = 'modal';
-            modal.innerHTML = `
-                <div class="modal-content" style="max-width: 400px;">
-                    <div class="modal-header">
-                        <h3><i class="fas fa-envelope"></i> Send Test Email</h3>
-                        <button class="close-modal">&times;</button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="form-group">
-                            <label for="testEmailAddress">Email Address</label>
-                            <input type="email" id="testEmailAddress" class="form-control" placeholder="test@example.com">
-                        </div>
-                        <div class="form-group">
-                            <label>Email Type</label>
-                            <div class="email-type-options" style="display: flex; gap: 10px; margin-bottom: 20px;">
-                                <div class="email-type-option selected" data-type="payment">
-                                    <i class="fas fa-shopping-cart"></i>
-                                    <span>Payment Email</span>
-                                </div>
-                                <div class="email-type-option" data-type="renewal">
-                                    <i class="fas fa-sync-alt"></i>
-                                    <span>Renewal Email</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="action-buttons" style="margin-top: 20px;">
-                            <button class="btn btn-primary" id="sendTestEmailBtn" style="width: 100%;">
-                                <i class="fas fa-paper-plane"></i> Send Test Email
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            `;
-            document.body.appendChild(modal);
-            
-            // Add styles for email type options
-            const style = document.createElement('style');
-            style.textContent = `
-                .email-type-option {
-                    flex: 1;
-                    padding: 15px;
-                    border: 2px solid var(--border-light);
-                    border-radius: 8px;
-                    text-align: center;
-                    cursor: pointer;
-                    transition: all 0.3s;
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    gap: 8px;
-                }
-                .email-type-option:hover {
-                    border-color: var(--primary-main);
-                    background: var(--background-light);
-                }
-                .email-type-option.selected {
-                    border-color: var(--primary-main);
-                    background: rgba(74, 79, 216, 0.1);
-                    font-weight: 600;
-                }
-                .email-type-option i {
-                    font-size: 20px;
-                    color: var(--primary-main);
-                }
-                .email-type-option span {
-                    font-size: 14px;
-                    color: var(--text-primary);
-                }
-            `;
-            document.head.appendChild(style);
-            
-            // Add event listeners
-            modal.querySelector('.close-modal').addEventListener('click', () => {
-                modal.classList.remove('active');
-            });
-            
-            // Email type selection
-            modal.querySelectorAll('.email-type-option').forEach(option => {
-                option.addEventListener('click', function() {
-                    modal.querySelectorAll('.email-type-option').forEach(o => o.classList.remove('selected'));
-                    this.classList.add('selected');
-                });
-            });
-            
-            // Send test email button
-            modal.querySelector('#sendTestEmailBtn').addEventListener('click', async function() {
-                const email = modal.querySelector('#testEmailAddress').value.trim();
-                const emailType = modal.querySelector('.email-type-option.selected').dataset.type;
-                
-                if (!email) {
-                    showNotification('Please enter an email address', 'error');
-                    return;
-                }
-                
-                // Validate email
-                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                if (!emailRegex.test(email)) {
-                    showNotification('Please enter a valid email address', 'error');
-                    return;
-                }
-                
-                try {
-                    await sendTestEmail(email, emailType);
-                    modal.classList.remove('active');
-                    // Clear the input
-                    modal.querySelector('#testEmailAddress').value = '';
-                } catch (error) {
-                    // Error already shown in sendTestEmail function
-                }
-            });
-            
-            // Close on outside click
-            modal.addEventListener('click', function(e) {
-                if (e.target === modal) {
-                    modal.classList.remove('active');
-                }
-            });
-        }
-        
-        // Show modal
-        modal.classList.add('active');
-        modal.querySelector('#testEmailAddress').focus();
-    }
-    
     // ========== AUTHENTICATION FUNCTIONS ==========
     async function login() {
         const password = elements.adminPassword ? elements.adminPassword.value.trim() : '';
@@ -2218,10 +2208,21 @@ async function sendTestEmail(email, emailType) {
                         <p>Send test payment/renewal emails</p>
                     </div>
                 `;
-                quickActionsGrid.appendChild(testEmailCard);
                 
-                // Add event listener
-                testEmailCard.addEventListener('click', showTestEmailModal);
+                // FIXED: Add robust event listener
+                testEmailCard.addEventListener('click', function() {
+                    console.log('📧 Test Email button clicked');
+                    
+                    if (typeof showTestEmailModal === 'function') {
+                        showTestEmailModal();
+                    } else {
+                        console.error('showTestEmailModal not found!');
+                        alert('Test email feature not loaded. Please refresh the page.');
+                    }
+                });
+                
+                quickActionsGrid.appendChild(testEmailCard);
+                console.log('✅ Test email button added to dashboard');
             }
         }, 500);
         
@@ -2255,6 +2256,25 @@ async function sendTestEmail(email, emailType) {
             console.log('Test result:', daysLeft === 3 ? '✅ PASS' : '❌ FAIL');
         }, 3000);
     }
+    
+// ========== EXPOSE FUNCTIONS TO WINDOW ==========
+// Put this OUTSIDE the DOMContentLoaded event
+
+// First define empty object
+window.sorvideAdmin = window.sorvideAdmin || {};
+
+// Then expose functions
+window.sorvideAdmin.showTestEmailModal = showTestEmailModal;
+window.sorvideAdmin.sendTestEmail = sendTestEmail;
+window.sorvideAdmin.showNotification = showNotification;
+
+console.log('✅ Sorvide Admin Dashboard loaded');
+console.log('📧 Test email functions available at window.sorvideAdmin');
+console.log('   Try: showTestEmailModal() or sendTestEmail("test@email.com", "payment")');
+
+// Also expose directly to window for easier access
+window.showTestEmailModal = showTestEmailModal;
+window.sendTestEmail = sendTestEmail;
     
     // Start the admin dashboard
     init();

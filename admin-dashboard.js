@@ -998,107 +998,182 @@ async function createLicense(email, name, days) {
         }
     }
     
-    function showTestEmailModal() {
-        console.log('📧 Opening test email modal...');
-        
-        // Remove existing modal if any
-        const existingModal = document.getElementById('testEmailModal');
-        if (existingModal) existingModal.remove();
-        
-        // Create modal HTML
-        const modalHTML = `
-            <div class="modal" id="testEmailModal" style="display: block; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000;">
-                <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 10px; min-width: 400px;">
-                    <h3 style="margin-top: 0; color: #4a4fd8;">
-                        <i class="fas fa-envelope"></i> Send Test Email
-                    </h3>
-                    
-                    <div style="margin-bottom: 20px;">
-                        <label style="display: block; margin-bottom: 8px; font-weight: bold;">Email Address</label>
-                        <input type="email" id="testEmailInput" 
-                               placeholder="test@example.com" 
-                               style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 16px;">
+function showTestEmailModal() {
+    console.log('📧 Opening enhanced test email modal...');
+    
+    // Remove existing modal if any
+    const existingModal = document.getElementById('testEmailModal');
+    if (existingModal) existingModal.remove();
+    
+    // Create modal HTML
+    const modalHTML = `
+        <div class="modal active" id="testEmailModal" style="display: flex;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3><i class="fas fa-envelope-open-text"></i> Send Test Email</h3>
+                    <button class="close-modal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="test-email-info">
+                        <p><i class="fas fa-info-circle"></i> Test both payment confirmation and renewal emails</p>
                     </div>
                     
-                    <div style="margin-bottom: 25px;">
-                        <label style="display: block; margin-bottom: 8px; font-weight: bold;">Email Type</label>
-                        <select id="testEmailType" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 16px;">
-                            <option value="payment">Payment Email (New License)</option>
-                            <option value="renewal">Renewal Email</option>
-                        </select>
-                    </div>
-                    
-                    <div style="display: flex; gap: 15px; margin-top: 30px;">
-                        <button id="sendTestBtn" style="flex: 1; padding: 12px; background: #4a4fd8; color: white; border: none; border-radius: 5px; font-size: 16px; cursor: pointer;">
+                    <div class="test-email-form">
+                        <div class="form-group">
+                            <label for="testEmailInput"><i class="fas fa-envelope"></i> Recipient Email</label>
+                            <input type="email" id="testEmailInput" 
+                                   class="form-control" 
+                                   placeholder="customer@example.com"
+                                   value="jasonfang102@gmail.com">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label><i class="fas fa-file-alt"></i> Email Type</label>
+                            <div class="email-type-options">
+                                <div class="email-type-option selected" data-type="payment">
+                                    <div class="email-icon">
+                                        <i class="fas fa-shopping-cart"></i>
+                                    </div>
+                                    <h4>Payment Confirmation</h4>
+                                    <p>New license purchase email with activation instructions</p>
+                                    <span class="badge">NEW</span>
+                                </div>
+                                <div class="email-type-option" data-type="renewal">
+                                    <div class="email-icon">
+                                        <i class="fas fa-sync-alt"></i>
+                                    </div>
+                                    <h4>Renewal Confirmation</h4>
+                                    <p>Subscription renewal email with extended license</p>
+                                    <span class="badge">RECURRING</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button class="btn-send-test" id="sendTestBtn">
                             <i class="fas fa-paper-plane"></i> Send Test Email
                         </button>
-                        <button id="cancelTestBtn" style="padding: 12px 25px; background: #f0f0f0; color: #333; border: none; border-radius: 5px; font-size: 16px; cursor: pointer;">
-                            Cancel
-                        </button>
+                        
+                        <div class="email-preview">
+                            <h4><i class="fas fa-eye"></i> Email Preview</h4>
+                            <div class="email-preview-content">
+                                <div class="preview-item">
+                                    <span class="preview-label">To:</span>
+                                    <span class="preview-value preview-email" id="previewEmail">jasonfang102@gmail.com</span>
+                                </div>
+                                <div class="preview-item">
+                                    <span class="preview-label">Type:</span>
+                                    <span class="preview-value" id="previewType">Payment Confirmation</span>
+                                </div>
+                                <div class="preview-item">
+                                    <span class="preview-label">Subject:</span>
+                                    <span class="preview-value" id="previewSubject">Your Sorvide Pro License Key & Activation Instructions</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
-        `;
-        
-        // Add modal to page
-        document.body.insertAdjacentHTML('beforeend', modalHTML);
-        
-        // Add event listeners
-        document.getElementById('sendTestBtn').addEventListener('click', async function() {
-            const email = document.getElementById('testEmailInput').value.trim();
-            const emailType = document.getElementById('testEmailType').value;
+        </div>
+    `;
+    
+    // Add modal to page
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    
+    // Update preview when email changes
+    const emailInput = document.getElementById('testEmailInput');
+    const previewEmail = document.getElementById('previewEmail');
+    const previewType = document.getElementById('previewType');
+    const previewSubject = document.getElementById('previewSubject');
+    
+    emailInput.addEventListener('input', function() {
+        previewEmail.textContent = this.value || 'customer@example.com';
+    });
+    
+    // Email type selection
+    const emailOptions = document.querySelectorAll('.email-type-option');
+    emailOptions.forEach(option => {
+        option.addEventListener('click', function() {
+            // Remove selected class from all options
+            emailOptions.forEach(o => o.classList.remove('selected'));
+            // Add selected class to clicked option
+            this.classList.add('selected');
             
-            if (!email) {
-                alert('Please enter an email address');
-                return;
-            }
+            // Update preview
+            const type = this.dataset.type;
+            const typeDisplay = type === 'payment' ? 'Payment Confirmation' : 'Renewal Confirmation';
+            const subject = type === 'payment' 
+                ? 'Your Sorvide Pro License Key & Activation Instructions' 
+                : 'Your Sorvide Pro Subscription Has Been Renewed';
             
-            // Validate email format
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (!emailRegex.test(email)) {
-                alert('Please enter a valid email address');
-                return;
-            }
-            
-            // Disable button and show loading
-            this.disabled = true;
-            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
-            
-            try {
-                // Use the sendTestEmail function
-                await sendTestEmail(email, emailType);
-                
-                // Close modal
-                document.getElementById('testEmailModal').remove();
-                
-                // Show success notification
-                showNotification(`${emailType} test email sent to ${email}`, 'success');
-                
-            } catch (error) {
-                // Re-enable button
-                this.disabled = false;
-                this.innerHTML = '<i class="fas fa-paper-plane"></i> Send Test Email';
-                
-                alert('Failed to send email: ' + error.message);
-            }
+            previewType.textContent = typeDisplay;
+            previewSubject.textContent = subject;
         });
+    });
+    
+    // Send test email button
+    const sendBtn = document.getElementById('sendTestBtn');
+    sendBtn.addEventListener('click', async function() {
+        const email = emailInput.value.trim();
+        const emailType = document.querySelector('.email-type-option.selected').dataset.type;
         
-        document.getElementById('cancelTestBtn').addEventListener('click', function() {
+        if (!email) {
+            showNotification('Please enter an email address', 'error');
+            emailInput.focus();
+            return;
+        }
+        
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            showNotification('Please enter a valid email address', 'error');
+            emailInput.focus();
+            return;
+        }
+        
+        // Disable button and show loading
+        this.disabled = true;
+        this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending Test Email...';
+        
+        try {
+            // Use the sendTestEmail function
+            await sendTestEmail(email, emailType);
+            
+            // Close modal
             document.getElementById('testEmailModal').remove();
-        });
-        
-        // Close on outside click
-        document.getElementById('testEmailModal').addEventListener('click', function(e) {
-            if (e.target === this) {
-                this.remove();
-            }
-        });
-        
-        // Focus on input
-        setTimeout(() => {
-            document.getElementById('testEmailInput').focus();
-        }, 100);
-    }
+            
+            // Show success notification
+            const typeDisplay = emailType === 'payment' ? 'Payment' : 'Renewal';
+            showNotification(`${typeDisplay} test email sent to ${email}`, 'success');
+            
+        } catch (error) {
+            // Re-enable button
+            this.disabled = false;
+            this.innerHTML = '<i class="fas fa-paper-plane"></i> Send Test Email';
+            
+            // Show error
+            showNotification(`Failed to send email: ${error.message}`, 'error');
+        }
+    });
+    
+    // Cancel button (close modal)
+    const closeBtn = document.querySelector('#testEmailModal .close-modal');
+    closeBtn.addEventListener('click', function() {
+        document.getElementById('testEmailModal').remove();
+    });
+    
+    // Close on outside click
+    document.getElementById('testEmailModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            this.remove();
+        }
+    });
+    
+    // Focus on input
+    setTimeout(() => {
+        emailInput.focus();
+        emailInput.select();
+    }, 100);
+}
     
     async function deactivateLicense(licenseKey) {
         try {
@@ -2172,6 +2247,24 @@ async function createLicense(email, name, days) {
                 }
             });
         }
+
+            // ===== TEST EMAIL BUTTON =====
+    const testEmailBtn = document.getElementById('testEmailBtn');
+    if (testEmailBtn) {
+        testEmailBtn.addEventListener('click', function() {
+            console.log('📧 Test Email button clicked');
+            
+            if (typeof showTestEmailModal === 'function') {
+                showTestEmailModal();
+            } else {
+                console.error('showTestEmailModal function not found');
+                showNotification('Test email feature not loaded. Please refresh page.', 'error');
+            }
+        });
+        console.log('✅ Test email button event listener added');
+    } else {
+        console.error('❌ Test email button not found in HTML');
+    }
         
         // Global copy function
         window.copyToClipboard = function(text) {
@@ -2194,37 +2287,14 @@ async function createLicense(email, name, days) {
         // Check for existing session
         checkExistingSession();
         
-        // Add Test Email button to Quick Actions
-        setTimeout(() => {
-            const quickActionsGrid = document.querySelector('.quick-actions-grid');
-            if (quickActionsGrid) {
-                const testEmailCard = document.createElement('div');
-                testEmailCard.className = 'action-card';
-                testEmailCard.id = 'testEmailBtn';
-                testEmailCard.innerHTML = `
-                    <i class="fas fa-envelope"></i>
-                    <div>
-                        <h4>Test Email</h4>
-                        <p>Send test payment/renewal emails</p>
-                    </div>
-                `;
-                
-                // FIXED: Add robust event listener
-                testEmailCard.addEventListener('click', function() {
-                    console.log('📧 Test Email button clicked');
-                    
-                    if (typeof showTestEmailModal === 'function') {
-                        showTestEmailModal();
-                    } else {
-                        console.error('showTestEmailModal not found!');
-                        alert('Test email feature not loaded. Please refresh the page.');
-                    }
-                });
-                
-                quickActionsGrid.appendChild(testEmailCard);
-                console.log('✅ Test email button added to dashboard');
-            }
-        }, 500);
+        // Test Email button (HTML button)
+const testEmailBtn = document.getElementById('testEmailBtn');
+if (testEmailBtn) {
+    testEmailBtn.addEventListener('click', function() {
+        console.log('📧 Test Email button clicked from HTML');
+        showTestEmailModal();
+    });
+}
         
         // Focus on password input if showing login
         if (elements.adminPassword && elements.loginScreen.style.display !== 'none') {

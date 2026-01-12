@@ -2750,3 +2750,384 @@ p {
         border-color: var(--primary) !important;
     }
 }
+
+/* ===== TEST EMAIL MODAL STYLES ===== */
+.email-type-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin-bottom: 25px;
+}
+
+.email-type-option {
+    padding: 20px;
+    border: 2px solid var(--border-light);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    background: white;
+    position: relative;
+    overflow: hidden;
+}
+
+.email-type-option::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: transparent;
+    transition: all 0.3s;
+}
+
+.email-type-option:hover {
+    border-color: var(--primary-main);
+    transform: translateY(-3px);
+    box-shadow: 0 10px 25px rgba(74, 79, 216, 0.15);
+}
+
+.email-type-option:hover::before {
+    background: var(--primary-main);
+}
+
+.email-type-option.selected {
+    border-color: var(--primary-main);
+    background: linear-gradient(135deg, rgba(74, 79, 216, 0.05), rgba(74, 79, 216, 0.1));
+    box-shadow: 0 5px 20px rgba(74, 79, 216, 0.1);
+}
+
+.email-type-option.selected::before {
+    background: var(--primary-main);
+}
+
+.email-type-option.selected .email-icon {
+    background: var(--primary-main);
+    color: white;
+}
+
+.email-type-option .email-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 15px;
+    background: rgba(74, 79, 216, 0.1);
+    color: var(--primary-main);
+    font-size: 20px;
+    transition: all 0.3s;
+}
+
+.email-type-option h4 {
+    font-size: 15px;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+}
+
+.email-type-option p {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.4;
+    margin: 0;
+}
+
+.email-type-option .badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: var(--accent-green);
+    color: white;
+    font-size: 10px;
+    font-weight: 800;
+    padding: 3px 8px;
+    border-radius: 10px;
+    letter-spacing: 0.5px;
+}
+
+/* Test Email Form */
+.test-email-form .form-group {
+    margin-bottom: 20px;
+}
+
+.test-email-form label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 14px;
+}
+
+.test-email-form input[type="email"] {
+    width: 100%;
+    padding: 14px 16px;
+    border: 2px solid var(--border-light);
+    border-radius: 8px;
+    font-size: 15px;
+    transition: all 0.3s;
+    background: white;
+    color: var(--text-primary);
+}
+
+.test-email-form input[type="email"]:focus {
+    outline: none;
+    border-color: var(--primary-main);
+    box-shadow: 0 0 0 3px rgba(74, 79, 216, 0.1);
+}
+
+.test-email-form input[type="email"]::placeholder {
+    color: #a0aec0;
+}
+
+/* Send Test Button */
+.btn-send-test {
+    width: 100%;
+    padding: 16px;
+    background: linear-gradient(135deg, var(--primary-main), var(--primary-dark));
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 10px;
+    letter-spacing: 0.5px;
+}
+
+.btn-send-test:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px rgba(74, 79, 216, 0.3);
+}
+
+.btn-send-test:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.btn-send-test i {
+    font-size: 18px;
+}
+
+/* Test Email Modal Content */
+#testEmailModal .modal-content {
+    max-width: 500px;
+}
+
+#testEmailModal .modal-header {
+    background: linear-gradient(135deg, var(--primary-dark), var(--primary-main));
+    color: white;
+    margin: -30px -30px 20px -30px;
+    padding: 25px 30px;
+    border-radius: 12px 12px 0 0;
+}
+
+#testEmailModal .modal-header h3 {
+    color: white;
+    margin: 0;
+}
+
+#testEmailModal .modal-header .close-modal {
+    color: white;
+    background: rgba(255, 255, 255, 0.2);
+}
+
+#testEmailModal .modal-header .close-modal:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.test-email-info {
+    background: linear-gradient(135deg, rgba(74, 79, 216, 0.05), rgba(74, 79, 216, 0.1));
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 20px;
+    border-left: 4px solid var(--primary-main);
+}
+
+.test-email-info p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.test-email-info p i {
+    color: var(--primary-main);
+}
+
+/* Email Preview */
+.email-preview {
+    background: var(--background-light);
+    border-radius: 10px;
+    padding: 20px;
+    margin-top: 25px;
+    border: 2px dashed var(--border-light);
+}
+
+.email-preview h4 {
+    color: var(--text-primary);
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 16px;
+}
+
+.email-preview-content {
+    background: white;
+    border-radius: 8px;
+    padding: 15px;
+    border: 1px solid var(--border-light);
+}
+
+.preview-item {
+    display: flex;
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.preview-item:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+.preview-label {
+    font-weight: 600;
+    color: var(--text-secondary);
+    min-width: 100px;
+    font-size: 13px;
+}
+
+.preview-value {
+    color: var(--text-primary);
+    font-weight: 500;
+    flex: 1;
+}
+
+.preview-email {
+    color: var(--primary-main);
+    font-weight: 600;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .email-type-options {
+        grid-template-columns: 1fr;
+    }
+    
+    #testEmailModal .modal-content {
+        max-width: 95%;
+        padding: 20px;
+    }
+    
+    #testEmailModal .modal-header {
+        margin: -20px -20px 20px -20px;
+        padding: 20px;
+    }
+}
+
+/* ===== TEST EMAIL BUTTON STYLES ===== */
+#testEmailBtn {
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 2px solid var(--border-light);
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(248, 249, 255, 0.95));
+}
+
+#testEmailBtn:hover {
+    border-color: var(--primary-main);
+    transform: translateY(-3px);
+    box-shadow: 0 10px 25px rgba(74, 79, 216, 0.15);
+    background: linear-gradient(135deg, rgba(255, 255, 255, 1), rgba(248, 249, 255, 1));
+}
+
+#testEmailBtn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--primary-main), var(--primary-light));
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+#testEmailBtn:hover::before {
+    opacity: 1;
+}
+
+#testEmailBtn i {
+    color: var(--primary-main);
+    font-size: 20px;
+    position: relative;
+    z-index: 1;
+}
+
+#testEmailBtn h4 {
+    color: var(--text-primary);
+    font-weight: 700;
+    position: relative;
+    z-index: 1;
+}
+
+#testEmailBtn p {
+    color: var(--text-secondary);
+    font-size: 12px;
+    position: relative;
+    z-index: 1;
+}
+
+/* Email icon animation */
+#testEmailBtn i {
+    transition: all 0.3s;
+}
+
+#testEmailBtn:hover i {
+    transform: scale(1.1);
+    color: var(--primary-dark);
+}
+
+/* Pulse animation for attention */
+@keyframes pulse-email {
+    0% { box-shadow: 0 0 0 0 rgba(74, 79, 216, 0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(74, 79, 216, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(74, 79, 216, 0); }
+}
+
+/* Add this if you want a subtle pulse effect */
+#testEmailBtn.pulse {
+    animation: pulse-email 2s infinite;
+}
+
+/* Test Email Badge */
+#testEmailBtn::after {
+    content: 'TEST';
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: linear-gradient(135deg, var(--accent-green), #059669);
+    color: white;
+    font-size: 9px;
+    font-weight: 800;
+    padding: 2px 6px;
+    border-radius: 10px;
+    letter-spacing: 0.5px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}

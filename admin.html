@@ -300,6 +300,97 @@
             box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
         }
 
+        /* ===== TEST EMAIL BUTTON SPECIFIC STYLES ===== */
+        #testEmailBtn {
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 2px solid var(--border-light);
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(248, 249, 255, 0.95));
+        }
+
+        #testEmailBtn:hover {
+            border-color: var(--primary-main);
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px rgba(74, 79, 216, 0.15);
+            background: linear-gradient(135deg, rgba(255, 255, 255, 1), rgba(248, 249, 255, 1));
+        }
+
+        #testEmailBtn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--primary-main), var(--primary-light));
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        #testEmailBtn:hover::before {
+            opacity: 1;
+        }
+
+        #testEmailBtn i {
+            color: var(--primary-main);
+            font-size: 20px;
+            position: relative;
+            z-index: 1;
+        }
+
+        #testEmailBtn h4 {
+            color: var(--text-primary);
+            font-weight: 700;
+            position: relative;
+            z-index: 1;
+        }
+
+        #testEmailBtn p {
+            color: var(--text-secondary);
+            font-size: 12px;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Email icon animation */
+        #testEmailBtn i {
+            transition: all 0.3s;
+        }
+
+        #testEmailBtn:hover i {
+            transform: scale(1.1);
+            color: var(--primary-dark);
+        }
+
+        /* Pulse animation for attention */
+        @keyframes pulse-email {
+            0% { box-shadow: 0 0 0 0 rgba(74, 79, 216, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(74, 79, 216, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(74, 79, 216, 0); }
+        }
+
+        /* Add this if you want a subtle pulse effect */
+        #testEmailBtn.pulse {
+            animation: pulse-email 2s infinite;
+        }
+
+        /* Test Email Badge */
+        #testEmailBtn::after {
+            content: 'TEST';
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: linear-gradient(135deg, var(--accent-green), #059669);
+            color: white;
+            font-size: 9px;
+            font-weight: 800;
+            padding: 2px 6px;
+            border-radius: 10px;
+            letter-spacing: 0.5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
         .action-card i {
             font-size: 20px;
             color: var(--primary-main);
@@ -1129,6 +1220,218 @@
             word-break: break-all;
         }
 
+        /* ===== TEST EMAIL MODAL SPECIFIC STYLES ===== */
+        .test-email-info {
+            background: rgba(74, 79, 216, 0.05);
+            border-left: 4px solid var(--primary-main);
+            padding: 12px 16px;
+            margin-bottom: 25px;
+            border-radius: 6px;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        .test-email-info p {
+            margin: 0;
+            color: var(--text-primary);
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .test-email-info i {
+            color: var(--primary-main);
+            font-size: 16px;
+            margin-top: 1px;
+        }
+
+        .email-type-options {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        @media (max-width: 768px) {
+            .email-type-options {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .email-type-option {
+            border: 2px solid var(--border-light);
+            border-radius: 10px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            background: white;
+        }
+
+        .email-type-option:hover {
+            border-color: var(--primary-light);
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(74, 79, 216, 0.12);
+        }
+
+        .email-type-option.selected {
+            border-color: var(--primary-main);
+            background: linear-gradient(135deg, rgba(74, 79, 216, 0.03), rgba(106, 112, 255, 0.03));
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(74, 79, 216, 0.1);
+        }
+
+        .email-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 15px;
+            background: linear-gradient(135deg, var(--primary-main), var(--primary-light));
+            color: white;
+            font-size: 20px;
+        }
+
+        .email-type-option[data-type="renewal"] .email-icon {
+            background: linear-gradient(135deg, var(--accent-orange), #fbbf24);
+        }
+
+        .email-type-option h4 {
+            font-size: 16px;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+            font-weight: 700;
+        }
+
+        .email-type-option p {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin: 0;
+            line-height: 1.4;
+        }
+
+        .badge {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: var(--accent-green);
+            color: white;
+            font-size: 10px;
+            font-weight: 800;
+            padding: 3px 8px;
+            border-radius: 20px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .email-type-option[data-type="renewal"] .badge {
+            background: var(--accent-blue);
+        }
+
+        .btn-send-test {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, var(--primary-main), var(--primary-dark));
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 25px;
+        }
+
+        .btn-send-test:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(74, 79, 216, 0.3);
+        }
+
+        .btn-send-test:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+
+        .email-preview {
+            background: var(--background-light);
+            border-radius: 8px;
+            padding: 20px;
+            border: 1px solid var(--border-light);
+        }
+
+        .email-preview h4 {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--text-primary);
+            margin-bottom: 15px;
+            font-size: 15px;
+        }
+
+        .email-preview h4 i {
+            color: var(--primary-main);
+        }
+
+        .email-preview-content {
+            background: white;
+            border-radius: 6px;
+            padding: 15px;
+            border: 1px solid var(--border-light);
+        }
+
+        .preview-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .preview-item:last-child {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+
+        .preview-label {
+            font-weight: 600;
+            color: var(--text-secondary);
+            min-width: 70px;
+            font-size: 13px;
+        }
+
+        .preview-value {
+            color: var(--text-primary);
+            font-size: 13px;
+            flex: 1;
+        }
+
+        .preview-email {
+            color: var(--primary-main);
+            font-weight: 600;
+        }
+
+        /* Email Preview Animation */
+        @keyframes emailSent {
+            0% { transform: translateX(0); }
+            25% { transform: translateX(5px); }
+            50% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+            100% { transform: translateX(0); }
+        }
+
+        .email-sent-animation {
+            animation: emailSent 0.5s ease-in-out;
+        }
+
         /* Notifications */
         .notification {
             position: fixed;
@@ -1466,6 +1769,13 @@
                                 <p>Reload all license data</p>
                             </div>
                         </div>
+                        <div class="action-card" id="testEmailBtn">
+                            <i class="fas fa-envelope"></i>
+                            <div>
+                                <h4>Test Email</h4>
+                                <p>Send test payment/renewal emails</p>
+                            </div>
+                        </div>
                         <div class="action-card" id="systemHealth">
                             <i class="fas fa-heartbeat"></i>
                             <div>
@@ -1583,6 +1893,28 @@
         </div>
     </div>
 
+    <!-- Test Email Modal (will be dynamically inserted by JavaScript) -->
+    <!-- The modal HTML is created in admin-dashboard.js -->
+
     <script src="admin-dashboard.js"></script>
+    <script>
+        // This ensures the functions are available globally
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('✅ admin.html loaded - test email button ready');
+            
+            // Quick fix to ensure test button works
+            const testBtn = document.getElementById('testEmailBtn');
+            if (testBtn) {
+                testBtn.addEventListener('click', function() {
+                    console.log('📧 Test Email button clicked');
+                    if (typeof showTestEmailModal === 'function') {
+                        showTestEmailModal();
+                    } else {
+                        alert('Test email function not loaded yet. Please wait or refresh.');
+                    }
+                });
+            }
+        });
+    </script>
 </body>
 </html>
